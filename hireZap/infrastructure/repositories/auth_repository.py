@@ -1,0 +1,45 @@
+from core.interface.auth_repository_port import AuthRepositoryPort
+from core.entities.user import UserEntity
+from accounts.models import User
+from typing import Optional
+from django.utils import timezone
+
+
+class AuthUserRepository(AuthRepositoryPort):
+    def create(self,user:UserEntity) -> User:
+        u = User.objects.create(
+            email = user.email,
+            full_name = user.full_name,
+            phone = user.phone or None,
+            role = user.role,
+            profile_image_url = user.profile_image_url or None,
+            is_admin = user.is_admin,
+            is_active = user.is_active
+        )
+        if user.password:
+            u.set_password(user.password)
+            u.save()
+        return u
+    
+    def get_by_email(self, email: str) -> Optional[User]:
+        try:
+            return User.objects.get(email__iexact = email)
+        except User.DoesNotExist:
+            return None
+        
+    def authenticate(self, email:str, password: str) -> Optional[User]:
+        user = self.get_by_email(email) 
+        if not user:
+            return None
+        if not user.is_active:
+            return None
+        return user
+    
+    def update_last_login(self, user_id: int):
+        try:
+            u = User.objects.get(pk = user_id)
+            u.last_login = timezone.now()
+            u.save(update_fields=['last_login'])
+        except User.DoesNotExist:
+            pass
+
