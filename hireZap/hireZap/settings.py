@@ -225,3 +225,9 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = env('EMAIL_USE_TLS', cast=bool, default=True)
 EMAIL_USE_SSL = env('EMAIL_USE_SSL', cast=bool, default=False)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+
+# redis configuration for otp
+REDIS_HOST = env('REDIS_HOST')
+REDIS_PORT = int(env('REDIS_PORT'))
+REDIS_DB = int(env('REDIS_DB'))
+

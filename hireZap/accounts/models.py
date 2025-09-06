@@ -50,12 +50,3 @@ class User(AbstractBaseUser,PermissionsMixin):
     def __str__(self):
         return f"{self.email} ({self.role})"
 
-class OtpModel(models.Model):
-    email = models.EmailField()
-    code = models.CharField(max_length=6)
-    expires_at = models.DateTimeField()
-    verified = models.BooleanField(default=False)
-    action_type = models.CharField(max_length=50)
-
-    def __str__(self):
-        return f"{self.email}- {self.action_type} - {self.code}"

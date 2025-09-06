@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from accounts.serializers import RegisterSerializer, LoginSerializer, UserReadSerializer
 from infrastructure.repositories.auth_repository import AuthUserRepository
+from infrastructure.redis_client import redis_client
 from infrastructure.repositories.otp_repository import OtpRepository
 from core.use_cases.auth.register_user import RegisterUserUsecase
 from core.use_cases.auth.login_user import LoginUserUsecase
@@ -18,7 +19,7 @@ from accounts.helpers import set_jwt_cookies, clear_jwt_cookies
 from accounts.models import User
 
 email_sender = EmailSender()
-otp_repo = OtpRepository()
+otp_repo = OtpRepository(redis_client)
 user_repo = AuthUserRepository()
 reg_use_case = RegisterUserUsecase(user_repo, otp_repo)
 login_use_case = LoginUserUsecase(user_repo)
@@ -56,9 +57,8 @@ class RegisterView(APIView):
         data = serializer.validated_data
 
         # Requesting for otp
-        otp_use_case = RequestOtpUsecase(otp_repo, email_sender)
-        otp_use_case.execute(data['email'],"register")
-
+        request_otp_use_case.execute(data['email'],"register")
+        
         return Response(
             {'message':'OTP sent to your email. Please verify to complete the registration'},
             status= status.HTTP_200_OK
