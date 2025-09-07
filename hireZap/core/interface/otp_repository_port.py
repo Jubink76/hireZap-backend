@@ -18,3 +18,9 @@ class OtpRepositoryPort(ABC):
     def mark_verified(self, email:str, action_type:str):
         """ mark otp as verified"""
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_otp(self,email:str, action_type:str):
+        """ Immediately remove the key from Redis.."""
+        raise NotImplementedError
+    

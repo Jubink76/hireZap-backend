@@ -34,13 +34,28 @@ class CsrfCookieView(APIView):
         return Response({"detail": "CSRF cookie set"})
     
 class RequestOtpView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
     def post(self,request):
         email = request.data.get("email")
         action_type = request.data.get("action_type")
         result = request_otp_use_case.execute(email, action_type)
         return Response(result)
     
+class ResendOtpView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self,request):
+        email = request.data.get("email")
+        action_type = request.data.get("action_type")
+        if not email or not action_type:
+            return Response({"detail":"email and action_type required"}, status=status.HTTP_400_BAD_REQUEST)
+        result = request_otp_use_case.execute(email,action_type, resend=True)
+        return Response(result)
+    
 class VerifyOtpView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def post(self,request):
         email = request.data.get('email')
         code = request.data.get('code')
@@ -98,7 +113,14 @@ class RegisterOtpView(APIView):
         except ValueError as e:
             return Response({'detail': str(e)}, status= status.HTTP_400_BAD_REQUEST)
         
-        return Response(UserReadSerializer(created_user).data, status= status.HTTP_201_CREATED)
+        #jwt token for the newly registered user
+        refresh = RefreshToken.for_user(created_user)
+        access = refresh.access_token
+
+        response = Response(UserReadSerializer(created_user).data, status = status.HTTP_201_CREATED)
+        set_jwt_cookies(response,access, refresh, rememeber_me=False)
+
+        return response
     
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
