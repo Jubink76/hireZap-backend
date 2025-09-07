@@ -1,8 +1,7 @@
 from datetime import datetime
-from core.interface.otp_repository_port import OtpRepositoryPort
-
+from infrastructure.repositories.otp_repository import OtpRepository
 class VerifyOtpUsecase:
-    def __init__(self,otp_repo:OtpRepositoryPort):
+    def __init__(self,otp_repo:OtpRepository):
         self.otp_repo = otp_repo
 
     def execute(self, email:str, code:str, action_type:str) -> bool:

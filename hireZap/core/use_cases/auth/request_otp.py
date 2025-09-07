@@ -2,9 +2,9 @@ import random
 from datetime import datetime, timedelta
 from core.entities.otp import OtpEntity
 from core.interface.otp_repository_port import OtpRepositoryPort
-
+from infrastructure.email.email_sender import EmailSender
 class RequestOtpUsecase:
-    def __init__(self,otp_repo:OtpRepositoryPort,email_sender):
+    def __init__(self,otp_repo:OtpRepositoryPort,email_sender:EmailSender):
         self.otp_repo = otp_repo
         self.email_sender = email_sender
 

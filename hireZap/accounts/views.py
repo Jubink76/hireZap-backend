@@ -14,6 +14,7 @@ from core.use_cases.auth.login_user import LoginUserUsecase
 from core.use_cases.auth.request_otp import RequestOtpUsecase
 from core.use_cases.auth.verify_otp import VerifyOtpUsecase
 from infrastructure.email.email_sender import EmailSender
+from infrastructure.repositories.pending_reg_repository import PendingRegistraionRepository
 from core.entities.user import UserEntity
 from accounts.helpers import set_jwt_cookies, clear_jwt_cookies
 from accounts.models import User
@@ -25,6 +26,7 @@ reg_use_case = RegisterUserUsecase(user_repo, otp_repo)
 login_use_case = LoginUserUsecase(user_repo)
 request_otp_use_case = RequestOtpUsecase(otp_repo, email_sender)
 verify_otp_use_case = VerifyOtpUsecase(otp_repo)
+pending_reg_repo = PendingRegistraionRepository(redis_client)
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CsrfCookieView(APIView):
@@ -35,7 +37,7 @@ class CsrfCookieView(APIView):
     
 class RequestOtpView(APIView):
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self,request):
         email = request.data.get("email")
         action_type = request.data.get("action_type")
@@ -71,8 +73,18 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        pending_reg_repo.save(data['email'],{
+            "name":data["name"],
+            "password":data["password"],
+            "role":data.get("role","candidate"),
+            "phone":data.get("phone"),
+            "profile_image_url":data.get("profile_image_url")
+        })
+
+        saved = pending_reg_repo.get(data['email'])
+        print("Pending registration saved:", saved)
         # Requesting for otp
-        request_otp_use_case.execute(data['email'],"register")
+        request_otp_use_case.execute(data['email'],"registration")
         
         return Response(
             {'message':'OTP sent to your email. Please verify to complete the registration'},
@@ -84,36 +96,44 @@ class RegisterOtpView(APIView):
     def post(self, request):
         email = request.data.get('email')
         code = request.data.get('code')
-        name = request.data.get('name')
-        password = request.data.get('password')
-        phone = request.data.get('phone')
-        role = request.data.get('role','candidate')
-        profile_image_url = request.data.get('profile_image_url')
-
+        print(email)
+        print(code)
         if not email or not code:
             return Response({'detail':'Email and OTP are required'}, status= status.HTTP_400_BAD_REQUEST)
         
         
-        verified = verify_otp_use_case.execute(email, code, 'register')
+        verified = verify_otp_use_case.execute(email, code, 'registration')
+        print(verified)
         if not verified:
             return Response({'detail':'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
+        pending = pending_reg_repo.get(email)
+        print(pending)
+        if not pending:
+            return Response({'detail':"Registration data expired"},status=status.HTTP_400_BAD_REQUEST)
         user_entity = UserEntity(
             id = None,
-            full_name= name,
+            full_name= pending["name"],
             email= email,
-            password= password,
-            phone= phone,
-            role= role,
-            profile_image_url= profile_image_url
+            password= pending["password"],
+            phone= pending.get("phone"),
+            role= pending.get("role","candidate"),
+            profile_image_url= pending.get("profile_image_url")
         )
+        print(user_entity)
+        otp_entity = pending_reg_repo.get(email)
+        print("pending data:", otp_entity)
 
+        otp_in_repo = verify_otp_use_case.otp_repo.get_otp(email, 'registration')
+        print("otp_in_repo:", otp_in_repo.__dict__ if otp_in_repo else None)
         try:
             created_user = reg_use_case.execute(user_entity)
         except ValueError as e:
             return Response({'detail': str(e)}, status= status.HTTP_400_BAD_REQUEST)
         
-        #jwt token for the newly registered user
+        pending_reg_repo.delete(email)
+        
+        #jwt token for the newly registered user    
         refresh = RefreshToken.for_user(created_user)
         access = refresh.access_token
 
