@@ -4,7 +4,7 @@ from datetime import timedelta
 COOKIE_SECURE = not getattr(settings, 'DEBUG', True)
 SAMESITE = "None" if not getattr(settings, 'DEBUG', True) else "Lax"
 
-def set_jwt_cookies(response, access_token: str, refresh_token: str, rememeber_me: bool = False):
+def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me: bool = False):
     # access token - short lived
     response.set_cookie(
         key = "access",
@@ -17,7 +17,7 @@ def set_jwt_cookies(response, access_token: str, refresh_token: str, rememeber_m
     )
 
     # refresh_token - longer lived
-    refresh_max_age = 30 * 24 * 60 * 60 if rememeber_me else 7 * 24 * 60 * 60
+    refresh_max_age = 30 * 24 * 60 * 60 if remember_me else 7 * 24 * 60 * 60
     response.set_cookie(
         key = "refresh",
         value = str(refresh_token),

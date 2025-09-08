@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework import status, permissions
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -138,22 +139,23 @@ class RegisterOtpView(APIView):
         access = refresh.access_token
 
         response = Response(UserReadSerializer(created_user).data, status = status.HTTP_201_CREATED)
-        set_jwt_cookies(response,access, refresh, rememeber_me=False)
+        set_jwt_cookies(response,access, refresh, remember_me=False)
 
         return response
     
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
-
+    renderer_classes = [JSONRenderer]
     def post(self,request):
         serializer = LoginSerializer(data = request.data)
         serializer.is_valid(raise_exception= True)
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        remember_me = serializer.validated_data.get('rememberMe', False)
+        remember_me = serializer.validated_data.get('remember_me', False)
 
         try:
             user = login_use_case.execute(email, password)
+            print(user)
         except ValueError:
             return Response({'detail': 'invalid credentials'}, status= status.HTTP_401_UNAUTHORIZED)
         
@@ -164,7 +166,8 @@ class LoginView(APIView):
         #update last_login
         user_repo.update_last_login(user.id)
         response = Response({"user":UserReadSerializer(user).data})
-        set_jwt_cookies(response, access, refresh, rememeber_me= remember_me)
+        print(response)
+        set_jwt_cookies(response, access, refresh, remember_me= remember_me)
         return response
     
 class RefreshView(APIView):
@@ -190,7 +193,7 @@ class RefreshView(APIView):
             new_refresh = RefreshToken.for_user(user)
             new_access = new_refresh.access_token
             response = Response({"detail":"refreshed"})
-            set_jwt_cookies(response, new_access, new_refresh, rememeber_me= False)
+            set_jwt_cookies(response, new_access, new_refresh, remember_me= False)
             return response
         
         except TokenError:

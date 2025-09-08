@@ -3,6 +3,7 @@ from core.entities.user import UserEntity
 from accounts.models import User
 from typing import Optional
 from django.utils import timezone
+from django.contrib.auth.hashers import check_password
 
 
 class AuthUserRepository(AuthRepositoryPort):
@@ -32,6 +33,8 @@ class AuthUserRepository(AuthRepositoryPort):
         if not user:
             return None
         if not user.is_active:
+            return None
+        if not user.check_password(password):
             return None
         return user
     
