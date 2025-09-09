@@ -23,3 +23,8 @@ class AuthRepositoryPort(ABC):
     def update_last_login(self,user_id:str):
         """ update last login using timestamp"""
         raise NotImplementedError
+    
+    @abstractmethod
+    def update_password(self,email:str, new_passowrd:str) -> bool:
+        """ update user password and return true"""
+        raise NotImplementedError

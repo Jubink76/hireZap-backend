@@ -28,3 +28,10 @@ class UserReadSerializer(serializers.ModelSerializer):
                 "created_at", 
                 "is_active"]
         read_only_fields = fields
+
+class VerifyEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8)

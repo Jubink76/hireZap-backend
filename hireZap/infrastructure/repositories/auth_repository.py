@@ -3,7 +3,7 @@ from core.entities.user import UserEntity
 from accounts.models import User
 from typing import Optional
 from django.utils import timezone
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 
 
 class AuthUserRepository(AuthRepositoryPort):
@@ -45,4 +45,12 @@ class AuthUserRepository(AuthRepositoryPort):
             u.save(update_fields=['last_login'])
         except User.DoesNotExist:
             pass
-
+    
+    def update_password(self, email, new_password):
+        try:
+            user = User.objects.get(email = email)
+            user.password = make_password(new_password)
+            user.save(update_fields=['password'])
+            return True
+        except User.DoesNotExist:
+            return False

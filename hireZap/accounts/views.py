@@ -6,7 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from accounts.serializers import RegisterSerializer, LoginSerializer, UserReadSerializer
+from accounts.serializers import RegisterSerializer, LoginSerializer, UserReadSerializer, VerifyEmailSerializer,ResetPasswordSerializer
 from infrastructure.repositories.auth_repository import AuthUserRepository
 from infrastructure.redis_client import redis_client
 from infrastructure.repositories.otp_repository import OtpRepository
@@ -14,6 +14,7 @@ from core.use_cases.auth.register_user import RegisterUserUsecase
 from core.use_cases.auth.login_user import LoginUserUsecase
 from core.use_cases.auth.request_otp import RequestOtpUsecase
 from core.use_cases.auth.verify_otp import VerifyOtpUsecase
+from core.use_cases.auth.reset_password import ResetPasswordUseCase
 from infrastructure.email.email_sender import EmailSender
 from infrastructure.repositories.pending_reg_repository import PendingRegistraionRepository
 from core.entities.user import UserEntity
@@ -64,6 +65,7 @@ class VerifyOtpView(APIView):
         code = request.data.get('code')
         action_type = request.data.get('action_type')
         verified = verify_otp_use_case.execute(email,code,action_type)
+        print(verified)
         return Response({'verified':verified})
     
 class RegisterView(APIView):
@@ -214,4 +216,50 @@ class LogoutView(APIView):
         response = Response({"detail":"logged out"})
         clear_jwt_cookies(response)
         return response
+
+class ForgotPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self,request):
+        serializer = VerifyEmailSerializer(data={"email":request.data.get("email")})
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        role = serializer.validated_data.get("role")
+        action_type = serializer.validated_data.get("action_type")
+
+        user = user_repo.get_by_email(email)
+        if not user:
+            return Response({"message":"Email is not registered"}, status=status.HTTP_404_NOT_FOUND)
+        
+        otp_result = request_otp_use_case.execute(email,action_type)
+
+        return Response(
+            {
+                "message":"Verify otp sent to your email!",
+                "role":role,
+                "action_type":action_type,
+                "code":otp_result,
+            },status=status.HTTP_200_OK
+        )
+    
+class ResetPasswordView(APIView):
+    permission_classes =  [permissions.AllowAny]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.reset_password_use_case = ResetPasswordUseCase(user_repo)
+
+    def post(self,request):
+        serializer = ResetPasswordSerializer(data = request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
+
+        res = self.reset_password_use_case.execute(email, password)
+        if not res:
+            return Response({"message":"user not found"},status= status.HTTP_404_NOT_FOUND)
+        return Response({"message":"Reset password successful"},status=status.HTTP_200_OK)
+        
+
     
