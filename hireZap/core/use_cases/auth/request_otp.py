@@ -12,7 +12,7 @@ class RequestOtpUsecase:
         if resend:
             self.otp_repo.delete_otp(email,action_type)
 
-        code = str(random.randint(000000,999999))
+        code = str(random.randint(000000,999999)).zfill(6)
         otp = OtpEntity(
             email = email,
             code = code,

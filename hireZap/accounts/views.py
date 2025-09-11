@@ -261,5 +261,11 @@ class ResetPasswordView(APIView):
             return Response({"message":"user not found"},status= status.HTTP_404_NOT_FOUND)
         return Response({"message":"Reset password successful"},status=status.HTTP_200_OK)
         
+class FetchUserView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self,request):
+        serializer = UserReadSerializer(request.user)
+        return Response(serializer.data)
 
     
