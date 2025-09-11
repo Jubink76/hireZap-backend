@@ -58,28 +58,28 @@ python manage.py migrate
 ```
 
 ## Env
-SECRET_KEY="your secret key
-DEBUG=True
-DB_ENGINE=django.db.backends.postgresql
-DB_NAME=db_name
-DB_USER=db_user
-DB_PASSWORD=password
-DB_HOST=localhost
-DB_PORT=5432
+- SECRET_KEY="your secret key
+- DEBUG=True
+- DB_ENGINE=django.db.backends.postgresql
+- DB_NAME=db_name
+- DB_USER=db_user
+- DB_PASSWORD=password
+- DB_HOST=localhost
+- DB_PORT=5432
 
 # email 
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=host@gmail.com
-EMAIL_HOST_PASSWORD=password_key
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=True
-DEFAULT_FROM_EMAIL=sender@gmail.com
+- EMAIL_HOST=smtp.gmail.com
+- EMAIL_PORT=587
+- EMAIL_HOST_USER=host@gmail.com
+- EMAIL_HOST_PASSWORD=password_key
+- EMAIL_USE_TLS=True
+- EMAIL_USE_SSL=True
+- DEFAULT_FROM_EMAIL=sender@gmail.com
 
 # redis
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_DB=0
+- REDIS_HOST=127.0.0.1
+- REDIS_PORT=6379
+- REDIS_DB=0
 
 ## usage
 ```bash
