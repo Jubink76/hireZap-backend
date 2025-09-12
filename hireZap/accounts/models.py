@@ -6,6 +6,7 @@ from django.utils import timezone
 class Roles(models.TextChoices):
     CANDIDATE = 'candidate','Candidate'
     RECRUITER = 'recruiter', 'Recruiter'
+    ADMIN = 'admin', 'Admin'
 
 class UserManager(BaseUserManager):
     def create_user(self, full_name, email, password = None,**extra_fields):
@@ -23,6 +24,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self,full_name, email, password = None, **extra_fields):
         extra_fields.setdefault('is_admin', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role',Roles.ADMIN)
         user = self.create_user(full_name=full_name, email=email, password= password, **extra_fields)
         user.is_staff = True
         user.save(using = self._db)

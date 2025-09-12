@@ -172,6 +172,7 @@ class LoginView(APIView):
         set_jwt_cookies(response, access, refresh, remember_me= remember_me)
         return response
     
+
 class RefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
