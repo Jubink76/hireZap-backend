@@ -20,6 +20,9 @@ from infrastructure.repositories.pending_reg_repository import PendingRegistraio
 from core.entities.user import UserEntity
 from accounts.helpers import set_jwt_cookies, clear_jwt_cookies
 from accounts.models import User
+from django.conf import settings
+import requests
+from .auth_utils import get_tokens_for_user, set_jwt_cookies
 
 email_sender = EmailSender()
 otp_repo = OtpRepository(redis_client)
@@ -30,6 +33,7 @@ request_otp_use_case = RequestOtpUsecase(otp_repo, email_sender)
 verify_otp_use_case = VerifyOtpUsecase(otp_repo)
 pending_reg_repo = PendingRegistraionRepository(redis_client)
 
+
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CsrfCookieView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -37,6 +41,65 @@ class CsrfCookieView(APIView):
     def get(self,request):
         return Response({"detail": "CSRF cookie set"})
     
+class GoogleAuthView(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        id_token = request.data.get('id_token')
+        role = request.data.get('role', 'candidate')
+
+        if not id_token:
+            return Response({'detail': 'id_token required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify token with Google
+        google_check_url = f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}'
+        r = requests.get(google_check_url)
+        if r.status_code != 200:
+            return Response({'detail': 'Invalid Google ID token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = r.json()
+        # verify audience
+        if payload.get('aud') != settings.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY:
+            return Response({'detail': 'Token audience mismatch'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = payload.get('email')
+        name = payload.get('name') or payload.get('email').split('@')[0]
+        picture = payload.get('picture')
+
+        if not email:
+            return Response({'detail': 'Google account has no email'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # get or create user
+        user, created = User.objects.get_or_create(email=email, defaults={
+            'full_name': name,
+            'role': role,
+            'profile_image_url': picture,
+        })
+        # update fields if necessary
+        if not created:
+            changed = False
+            if user.full_name != name:
+                user.full_name = name; changed=True
+            if user.profile_image_url != picture:
+                user.profile_image_url = picture; changed=True
+            if user.role != role:
+                user.role = role; changed=True
+            if changed:
+                user.save()
+
+        tokens = get_tokens_for_user(user)
+        data = {
+            'user': {
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role,
+            }, 
+            'created': created
+        }
+        resp = Response(data, status=status.HTTP_200_OK)
+        resp = set_jwt_cookies(resp, tokens)
+        return resp
+
 class RequestOtpView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -268,5 +331,7 @@ class FetchUserView(APIView):
     def get(self,request):
         serializer = UserReadSerializer(request.user)
         return Response(serializer.data)
+    
+
 
     

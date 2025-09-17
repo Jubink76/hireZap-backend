@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -147,6 +148,9 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = "unsafe-none"
+
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
 ]
@@ -164,7 +168,8 @@ SIMPLE_JWT = {
     # Token lifetimes
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),   # Access token valid for 1 hour
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),   # Refresh token valid for 7 days
-
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    
     # Refresh behavior
     'ROTATE_REFRESH_TOKENS': True,     # New refresh token each time
     'BLACKLIST_AFTER_ROTATION': True,  # Old refresh tokens go into blacklist
@@ -196,9 +201,9 @@ SIMPLE_JWT = {
 }
 
 SESSION_COOKIE_HTTPONLY = True
-
+SESSION_COOKIE_AGE = 86400  # 24 hours
 # Cross-site cookie handling (important for frontend-backend communication)
-SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-site requests (frontend hosted on different domain)
+SESSION_COOKIE_SAMESITE = 'Lax' # Allow cross-site requests (frontend hosted on different domain)
 CSRF_COOKIE_SAMESITE = 'None'
 
 # Secure flag → cookies only sent over HTTPS (must be True in production)
@@ -234,3 +239,22 @@ REDIS_HOST = env('REDIS_HOST')
 REDIS_PORT = int(env('REDIS_PORT'))
 REDIS_DB = int(env('REDIS_DB'))
 
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.github.GithubOAuth2',
+    'social_core.backends.linkedin.LinkedinOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+#social authentication provider keys
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_CLIENT_ID')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_CLIENT_SECRET')
+SOCIAL_AUTH_GITHUB_KEY = env('GITHUB_CLIENT_ID')
+SOCIAL_AUTH_GITHUB_SECRET = env('GITHUB_CLIENT_SECRET')
+
+# Social Auth URLs
+SOCIAL_AUTH_REDIRECT_URLS = {
+    'google': 'http://localhost:5173/auth/callback/google',
+    'github': 'http://localhost:5173/auth/callback/github',
+    'linkedin': 'http://localhost:5173/auth/callback/linkedin',
+}

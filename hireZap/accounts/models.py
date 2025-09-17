@@ -9,10 +9,16 @@ class Roles(models.TextChoices):
     ADMIN = 'admin', 'Admin'
 
 class UserManager(BaseUserManager):
-    def create_user(self, full_name, email, password = None,**extra_fields):
+    def create_user(self, email, full_name=None, password = None,**extra_fields):
         if not email:
             raise ValueError("Email required")
         email= self.normalize_email(email)
+
+        if not full_name:
+            first = extra_fields.pop('first_name', '')
+            last = extra_fields.pop('last_name', '')
+            full_name = (first + ' ' + last).strip()
+            
         user = self.model(email=email,full_name=full_name,**extra_fields)
         if password:
             user.set_password(password)
