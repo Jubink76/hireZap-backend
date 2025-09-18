@@ -42,63 +42,76 @@ class CsrfCookieView(APIView):
         return Response({"detail": "CSRF cookie set"})
     
 class GoogleAuthView(APIView):
-    permission_classes = []
+    permission_classes = []  # allow any for login
 
     def post(self, request):
         id_token = request.data.get('id_token')
-        role = request.data.get('role', 'candidate')
+        role = request.data.get('role', 'candidate')  # default role
 
         if not id_token:
             return Response({'detail': 'id_token required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Verify token with Google
+        # 1. Verify Google token
         google_check_url = f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}'
         r = requests.get(google_check_url)
         if r.status_code != 200:
             return Response({'detail': 'Invalid Google ID token'}, status=status.HTTP_400_BAD_REQUEST)
 
         payload = r.json()
-        # verify audience
         if payload.get('aud') != settings.SOCIAL_AUTH_GOOGLE_OAUTH2_KEY:
             return Response({'detail': 'Token audience mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
         email = payload.get('email')
-        name = payload.get('name') or payload.get('email').split('@')[0]
+        name = payload.get('name') or (email.split('@')[0] if email else '')
         picture = payload.get('picture')
 
         if not email:
             return Response({'detail': 'Google account has no email'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # get or create user
-        user, created = User.objects.get_or_create(email=email, defaults={
-            'full_name': name,
-            'role': role,
-            'profile_image_url': picture,
-        })
-        # update fields if necessary
-        if not created:
+        # 2. Enforce role check
+        user = User.objects.filter(email=email).first()
+        if user:
+            # already registered: block if role mismatch
+            if user.role != role:
+                return Response(
+                    {"error": f"This email already registered as {user.role}. Please login as {user.role}."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            # update name/picture if changed
             changed = False
             if user.full_name != name:
-                user.full_name = name; changed=True
+                user.full_name = name; changed = True
             if user.profile_image_url != picture:
-                user.profile_image_url = picture; changed=True
-            if user.role != role:
-                user.role = role; changed=True
+                user.profile_image_url = picture; changed = True
             if changed:
                 user.save()
+            created = False
+        else:
+            # create new user with given role
+            user = User.objects.create(
+                email=email,
+                full_name=name,
+                role=role,
+                profile_image_url=picture
+            )
+            created = True
 
+        # 3. Generate tokens and set cookies
         tokens = get_tokens_for_user(user)
         data = {
             'user': {
                 'email': user.email,
                 'full_name': user.full_name,
                 'role': user.role,
-            }, 
+                'profile_image_url': user.profile_image_url,
+            },
             'created': created
         }
+
         resp = Response(data, status=status.HTTP_200_OK)
         resp = set_jwt_cookies(resp, tokens)
         return resp
+
 
 class RequestOtpView(APIView):
     permission_classes = [permissions.AllowAny]
