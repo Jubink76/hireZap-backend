@@ -19,7 +19,7 @@ def set_jwt_cookies(response, tokens):
         value=tokens['access'],
         httponly=True,
         secure=not settings.DEBUG,
-        samesite='Lax',
+        samesite=None,
         max_age=30*60  # 30 minutes
     )
     # optionally send refresh as cookie:
@@ -28,7 +28,7 @@ def set_jwt_cookies(response, tokens):
         value=tokens['refresh'],
         httponly=True,
         secure=not settings.DEBUG,
-        samesite='Lax',
+        samesite=None,
         max_age=7*24*60*60
     )
     return response

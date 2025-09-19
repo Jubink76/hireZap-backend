@@ -42,7 +42,7 @@ class CsrfCookieView(APIView):
         return Response({"detail": "CSRF cookie set"})
     
 class GoogleAuthView(APIView):
-    permission_classes = []  # allow any for login
+    permission_classes = [permissions.AllowAny]  # allow any for login
 
     def post(self, request):
         id_token = request.data.get('id_token')
@@ -113,6 +113,95 @@ class GoogleAuthView(APIView):
         return resp
 
 
+class GithubAuthView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        code = request.data.get('code')
+        role = request.data.get('role', 'candidate')  # default role
+
+        if not code:
+            return Response({'detail': 'code required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1️⃣ Exchange code for access token
+        token_url = 'https://github.com/login/oauth/access_token'
+        payload = {
+            'client_id': settings.SOCIAL_AUTH_GITHUB_CLIENT_ID,
+            'client_secret': settings.SOCIAL_AUTH_GITHUB_CLIENT_SECRET,
+            'code': code,
+            'redirect_uri': settings.GITHUB_REDIRECT_URI,
+        }
+        headers = {'Accept': 'application/json'}
+        token_resp = requests.post(token_url, data=payload, headers=headers)
+        if token_resp.status_code != 200:
+            return Response({'detail': 'Failed to fetch GitHub access token'}, status=status.HTTP_400_BAD_REQUEST)
+        token_data = token_resp.json()
+        access_token = token_data.get('access_token')
+        if not access_token:
+            return Response({'detail': 'No access token received from GitHub'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2️⃣ Get user info from GitHub
+        user_resp = requests.get('https://api.github.com/user', headers={'Authorization': f'token {access_token}'})
+        if user_resp.status_code != 200:
+            return Response({'detail': 'Failed to fetch GitHub user info'}, status=status.HTTP_400_BAD_REQUEST)
+
+        gh_user = user_resp.json()
+        email = gh_user.get('email')
+        name = gh_user.get('name') or (email.split('@')[0] if email else '')
+        avatar_url = gh_user.get('avatar_url')
+
+        # GitHub emails can be null; fetch public emails if needed
+        if not email:
+            emails_resp = requests.get('https://api.github.com/user/emails', headers={'Authorization': f'token {access_token}'})
+            if emails_resp.status_code == 200:
+                emails = emails_resp.json()
+                primary_email = next((e['email'] for e in emails if e.get('primary') and e.get('verified')), None)
+                email = primary_email
+        if not email:
+            return Response({'detail': 'GitHub account has no verified email'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3️⃣ Check existing user or create new
+        user = User.objects.filter(email=email).first()
+        if user:
+            if user.role != role:
+                return Response(
+                    {"error": f"This email already registered as {user.role}. Please login as {user.role}."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            changed = False
+            if user.full_name != name:
+                user.full_name = name; changed = True
+            if user.profile_image_url != avatar_url:
+                user.profile_image_url = avatar_url; changed = True
+            if changed:
+                user.save()
+            created = False
+        else:
+            user = User.objects.create(
+                email=email,
+                full_name=name,
+                role=role,
+                profile_image_url=avatar_url
+            )
+            created = True
+
+        # 4️⃣ Generate tokens & set cookies
+        tokens = get_tokens_for_user(user)
+        data = {
+            'user': {
+                'email': user.email,
+                'full_name': user.full_name,
+                'role': user.role,
+                'profile_image_url': user.profile_image_url,
+            },
+            'created': created
+        }
+
+        resp = Response(data, status=status.HTTP_200_OK)
+        resp = set_jwt_cookies(resp, tokens)
+        return resp
+
+    
 class RequestOtpView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -141,7 +230,6 @@ class VerifyOtpView(APIView):
         code = request.data.get('code')
         action_type = request.data.get('action_type')
         verified = verify_otp_use_case.execute(email,code,action_type)
-        print(verified)
         return Response({'verified':verified})
     
 class RegisterView(APIView):
@@ -161,7 +249,7 @@ class RegisterView(APIView):
         })
 
         saved = pending_reg_repo.get(data['email'])
-        print("Pending registration saved:", saved)
+
         # Requesting for otp
         request_otp_use_case.execute(data['email'],"registration")
         
@@ -175,19 +263,15 @@ class RegisterOtpView(APIView):
     def post(self, request):
         email = request.data.get('email')
         code = request.data.get('code')
-        print(email)
-        print(code)
         if not email or not code:
             return Response({'detail':'Email and OTP are required'}, status= status.HTTP_400_BAD_REQUEST)
         
         
         verified = verify_otp_use_case.execute(email, code, 'registration')
-        print(verified)
         if not verified:
             return Response({'detail':'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
         pending = pending_reg_repo.get(email)
-        print(pending)
         if not pending:
             return Response({'detail':"Registration data expired"},status=status.HTTP_400_BAD_REQUEST)
         user_entity = UserEntity(
@@ -199,12 +283,9 @@ class RegisterOtpView(APIView):
             role= pending.get("role","candidate"),
             profile_image_url= pending.get("profile_image_url")
         )
-        print(user_entity)
         otp_entity = pending_reg_repo.get(email)
-        print("pending data:", otp_entity)
-
         otp_in_repo = verify_otp_use_case.otp_repo.get_otp(email, 'registration')
-        print("otp_in_repo:", otp_in_repo.__dict__ if otp_in_repo else None)
+
         try:
             created_user = reg_use_case.execute(user_entity)
         except ValueError as e:
@@ -233,7 +314,6 @@ class LoginView(APIView):
 
         try:
             user = login_use_case.execute(email, password)
-            print(user)
         except ValueError:
             return Response({'detail': 'invalid credentials'}, status= status.HTTP_401_UNAUTHORIZED)
         
@@ -244,7 +324,6 @@ class LoginView(APIView):
         #update last_login
         user_repo.update_last_login(user.id)
         response = Response({"user":UserReadSerializer(user).data})
-        print(response)
         set_jwt_cookies(response, access, refresh, remember_me= remember_me)
         return response
     

@@ -1,5 +1,5 @@
 from django.urls import path
-from . views import CsrfCookieView, RegisterView, LoginView, RefreshView, LogoutView, RegisterOtpView,RequestOtpView,ResendOtpView, VerifyOtpView, ForgotPasswordView,ResetPasswordView,FetchUserView,GoogleAuthView
+from . views import CsrfCookieView, RegisterView, LoginView, RefreshView, LogoutView, RegisterOtpView,RequestOtpView,ResendOtpView, VerifyOtpView, ForgotPasswordView,ResetPasswordView,FetchUserView,GoogleAuthView,GithubAuthView 
 urlpatterns = [
     path('auth/me/', FetchUserView.as_view(), name='auth_me'),
     path('auth/csrf-cookie/',CsrfCookieView.as_view(),name='csrf-cookie'),
@@ -15,5 +15,6 @@ urlpatterns = [
     path('auth/token/refresh/',RefreshView.as_view(),name='refresh'),
     path('auth/logout/',LogoutView.as_view(),name='logout'),
     path('auth/google/', GoogleAuthView.as_view(), name='social_google'),
+    path('auth/github/',GithubAuthView.as_view(), name='social_google'),
 ]
  

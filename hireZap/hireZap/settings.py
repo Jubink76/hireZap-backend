@@ -169,7 +169,7 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),   # Access token valid for 1 hour
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),   # Refresh token valid for 7 days
     'AUTH_COOKIE_HTTP_ONLY': True,
-    
+
     # Refresh behavior
     'ROTATE_REFRESH_TOKENS': True,     # New refresh token each time
     'BLACKLIST_AFTER_ROTATION': True,  # Old refresh tokens go into blacklist
@@ -249,12 +249,13 @@ AUTHENTICATION_BACKENDS = (
 #social authentication provider keys
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_CLIENT_ID')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_CLIENT_SECRET')
-SOCIAL_AUTH_GITHUB_KEY = env('GITHUB_CLIENT_ID')
-SOCIAL_AUTH_GITHUB_SECRET = env('GITHUB_CLIENT_SECRET')
+SOCIAL_AUTH_GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID')
+SOCIAL_AUTH_GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET')
 
 # Social Auth URLs
 SOCIAL_AUTH_REDIRECT_URLS = {
     'google': 'http://localhost:5173/auth/callback/google',
-    'github': 'http://localhost:5173/auth/callback/github',
     'linkedin': 'http://localhost:5173/auth/callback/linkedin',
 }
+
+GITHUB_REDIRECT_URI = 'http://localhost:5173/auth/github/callback'
