@@ -85,9 +85,8 @@ python manage.py migrate
 ```bash
 python manage.py runserver
 ```
-```markdown
 ## 📂 Project Structure
-
+```markdown
 - hireZap/
   - accounts (auth app)/
   - core/
