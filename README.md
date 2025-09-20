@@ -85,13 +85,15 @@ python manage.py migrate
 ```bash
 python manage.py runserver
 ```
-## project structure
-hireZap/
-  accounts(auth app)/
-  core/
-    entities/
-    interface/
-    usecases/
-  hireZap(project-config)/
-  infrastructure/
-    repositories/
+```markdown
+## 📂 Project Structure
+
+- hireZap/
+  - accounts (auth app)/
+  - core/
+    - entities/
+    - interface/
+    - usecases/
+  - hireZap (project-config)/
+  - infrastructure/
+    - repositories/
