@@ -22,10 +22,10 @@ def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me
         key = "refresh",
         value = str(refresh_token),
         httponly = True,
-        secure = COOKIE_SECURE,
+        secure = COOKIE_SECURE, # for dev only
         samesite = SAMESITE,
         max_age = refresh_max_age,
-        path = '/api/auth/',
+        path = '/',
     )
 
 def clear_jwt_cookies(response):

@@ -203,12 +203,12 @@ SIMPLE_JWT = {
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 86400  # 24 hours
 # Cross-site cookie handling (important for frontend-backend communication)
-SESSION_COOKIE_SAMESITE = 'Lax' # Allow cross-site requests (frontend hosted on different domain)
+SESSION_COOKIE_SAMESITE = 'None' # Allow cross-site requests (frontend hosted on different domain)
 CSRF_COOKIE_SAMESITE = 'None'
 
 # Secure flag → cookies only sent over HTTPS (must be True in production)
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
 # CORS allow headers → defines which headers frontend can send
 CORS_ALLOW_HEADERS = [
