@@ -18,11 +18,10 @@ from core.use_cases.auth.reset_password import ResetPasswordUseCase
 from infrastructure.email.email_sender import EmailSender
 from infrastructure.repositories.pending_reg_repository import PendingRegistraionRepository
 from core.entities.user import UserEntity
-from accounts.helpers import set_jwt_cookies, clear_jwt_cookies
+from accounts.helpers import set_jwt_cookies, clear_jwt_cookies,get_tokens_for_user
 from accounts.models import User
 from django.conf import settings
 import requests
-from .auth_utils import get_tokens_for_user, set_jwt_cookies
 
 email_sender = EmailSender()
 otp_repo = OtpRepository(redis_client)
@@ -98,6 +97,7 @@ class GoogleAuthView(APIView):
 
         # 3. Generate tokens and set cookies
         tokens = get_tokens_for_user(user)
+        print(tokens)
         data = {
             'user': {
                 'email': user.email,
@@ -109,7 +109,7 @@ class GoogleAuthView(APIView):
         }
 
         resp = Response(data, status=status.HTTP_200_OK)
-        resp = set_jwt_cookies(resp, tokens)
+        resp = set_jwt_cookies(resp, tokens['access'],tokens['refresh'])
         return resp
 
 
@@ -198,7 +198,7 @@ class GithubAuthView(APIView):
         }
 
         resp = Response(data, status=status.HTTP_200_OK)
-        resp = set_jwt_cookies(resp, tokens)
+        resp = set_jwt_cookies(resp, tokens['access'],tokens['refresh'])
         return resp
 
     

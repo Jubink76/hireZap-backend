@@ -1,8 +1,17 @@
 from django.conf import settings
 from datetime import timedelta
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 COOKIE_SECURE = not getattr(settings, 'DEBUG', True)
 SAMESITE = "None" if not getattr(settings, 'DEBUG', True) else "Lax"
+
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+    }
 
 def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me: bool = False):
     # access token - short lived
@@ -27,6 +36,7 @@ def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me
         max_age = refresh_max_age,
         path = '/',
     )
+    return response
 
 def clear_jwt_cookies(response):
     response.delete_cookie('access',path='/')
