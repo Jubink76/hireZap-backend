@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework import status, permissions
+from rest_framework import status, permissions, generics
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from django.utils.decorators import method_decorator
@@ -22,6 +22,12 @@ from accounts.helpers import set_jwt_cookies, clear_jwt_cookies,get_tokens_for_u
 from accounts.models import User
 from django.conf import settings
 import requests
+import hashlib
+import time
+from django.http import JsonResponse 
+from rest_framework.decorators import api_view, permission_classes
+import logging
+logger = logging.getLogger(__name__)
 
 email_sender = EmailSender()
 otp_repo = OtpRepository(redis_client)
@@ -98,6 +104,7 @@ class GoogleAuthView(APIView):
         # 3. Generate tokens and set cookies
         tokens = get_tokens_for_user(user)
         print(tokens)
+        
         data = {
             'user': {
                 'email': user.email,
@@ -119,7 +126,8 @@ class GithubAuthView(APIView):
     def post(self, request):
         code = request.data.get('code')
         role = request.data.get('role', 'candidate')  # default role
-
+        logger.info("Access cookie: %s", request.COOKIES.get('access'))
+        logger.info("Refresh cookie: %s", request.COOKIES.get('refresh'))
         if not code:
             return Response({'detail': 'code required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -302,12 +310,68 @@ class RegisterOtpView(APIView):
 
         return response
     
+
+# class LoginView(APIView):
+#     permission_classes = [permissions.AllowAny]
+#     renderer_classes = [JSONRenderer]
+    
+#     def post(self, request):
+#         serializer = LoginSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         email = serializer.validated_data['email']
+#         password = serializer.validated_data['password']
+#         remember_me = serializer.validated_data.get('remember_me', False)
+
+#         try:
+#             user = login_use_case.execute(email, password)
+#         except ValueError:
+#             return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+#         # CREATE TOKENS
+#         refresh = RefreshToken.for_user(user)
+#         access = refresh.access_token
+        
+#         # Convert to strings
+#         access_str = str(access)
+#         refresh_str = str(refresh)
+        
+#         # Update last_login
+#         user_repo.update_last_login(user.id)
+        
+#         # IMPORTANT: Use JsonResponse instead of DRF Response for cookies
+#         response_data = {"user": UserReadSerializer(user).data}
+#         response = JsonResponse(response_data, status=200)
+        
+#         # Set JWT cookies
+#         set_jwt_cookies(response, access_str, refresh_str, remember_me=remember_me)
+        
+#         # Add CORS headers manually since we're using JsonResponse
+#         response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+#         response["Access-Control-Allow-Credentials"] = "true"
+        
+#         # DEBUG LOGGING
+#         logger.info("=" * 80)
+#         logger.info("LOGIN - SETTING COOKIES")
+#         logger.info(f"User: {user.email}")
+#         logger.info(f"Access token (first 30 chars): {access_str[:30]}...")
+#         logger.info(f"Refresh token (first 30 chars): {refresh_str[:30]}...")
+#         logger.info(f"Remember me: {remember_me}")
+#         logger.info(f"Response type: {type(response)}")
+#         logger.info(f"Response cookies: {response.cookies}")
+        
+#         # Log each cookie
+#         for cookie_name, cookie in response.cookies.items():
+#             logger.info(f"Cookie '{cookie_name}': {dict(cookie)}")
+        
+#         logger.info("=" * 80)
+        
+#         return response
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    renderer_classes = [JSONRenderer]
-    def post(self,request):
-        serializer = LoginSerializer(data = request.data)
-        serializer.is_valid(raise_exception= True)
+    
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         remember_me = serializer.validated_data.get('remember_me', False)
@@ -315,24 +379,37 @@ class LoginView(APIView):
         try:
             user = login_use_case.execute(email, password)
         except ValueError:
-            return Response({'detail': 'invalid credentials'}, status= status.HTTP_401_UNAUTHORIZED)
+            return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        # CREATE TOKENS USING SIMPLE JWT
-        refresh = RefreshToken.for_user(user)
-        #optinally change the refresh expiration dynamicalluy
-        access = refresh.access_token
-        #update last_login
+        # CREATE TOKENS using helper function
+        tokens = get_tokens_for_user(user)
+        
+        # Update last_login
         user_repo.update_last_login(user.id)
-        response = Response({"user":UserReadSerializer(user).data})
-        set_jwt_cookies(response, access, refresh, remember_me= remember_me)
+        
+        # Create response with user data
+        response = Response(
+            {"user": UserReadSerializer(user).data},
+            status=status.HTTP_200_OK
+        )
+        
+        # Set cookies using helper function
+        set_jwt_cookies(response, tokens['access'], tokens['refresh'], remember_me=remember_me)
+        
+        # DEBUG
+        logger.info("=" * 80)
+        logger.info(f"Login successful for: {user.email}")
+        logger.info(f"Response cookies: {list(response.cookies.keys())}")
+        logger.info("=" * 80)
+        
         return response
-    
 
 class RefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         refresh_cookie = request.COOKIES.get('refresh')
+        print(request.COOKIES)
         if not refresh_cookie:
             return Response({"detail":"No refresh token"}, status= status.HTTP_401_UNAUTHORIZED)
         try:
@@ -421,9 +498,65 @@ class FetchUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self,request):
+        logger.info("Access cookie: %s", request.COOKIES.get('access'))
+        logger.info("Refresh cookie: %s", request.COOKIES.get('refresh'))
         serializer = UserReadSerializer(request.user)
         return Response(serializer.data)
     
+class CloudinarySignatureApiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, format=None):
+        logger.info("=" * 80)
+        logger.info("CLOUDINARY SIGNATURE REQUEST")
+        logger.info(f"All cookies: {dict(request.COOKIES)}")
+        logger.info(f"Has access: {'access' in request.COOKIES}")
+        logger.info(f"Has refresh: {'refresh' in request.COOKIES}")
+        logger.info(f"User authenticated: {request.user.is_authenticated}")
+        logger.info(f"User: {request.user}")
+        logger.info(f"Request path: {request.path}")
+        logger.info(f"Request headers Cookie: {request.META.get('HTTP_COOKIE', 'NONE')}")
+        logger.info("=" * 80)
+        
+        folder = request.query_params.get("folder", "profiles")
+        timestamp = int(time.time())
+        params_to_sign = f"folder={folder}&timestamp={timestamp}{settings.CLOUDINARY['api_secret']}"
+        signature = hashlib.sha1(params_to_sign.encode('utf-8')).hexdigest()
+        
+        return Response({
+            "signature": signature,
+            "timestamp": timestamp,
+            "api_key": settings.CLOUDINARY['api_key'],
+            "cloud_name": settings.CLOUDINARY['cloud_name'],
+            "folder": folder
+        })
+
+    
+class UpdateUserProfileView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserReadSerializer
+
+    def get_object(self):
+        return self.request.user
 
 
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def debug_cookies(request):
+    """Debug endpoint to check what cookies backend receives"""
+    logger.info("=" * 80)
+    logger.info("REQUEST DEBUG INFO")
+    logger.info("=" * 80)
+    logger.info(f"All Cookies: {dict(request.COOKIES)}")
+    logger.info(f"All Headers: {dict(request.headers)}")
+    logger.info(f"Origin: {request.headers.get('Origin')}")
+    logger.info(f"Referer: {request.headers.get('Referer')}")
+    logger.info("=" * 80)
+    
+    return Response({
+        "cookies_received": list(request.COOKIES.keys()),
+        "has_access": "access" in request.COOKIES,
+        "has_refresh": "refresh" in request.COOKIES,
+        "origin": request.headers.get('Origin'),
+    })
     

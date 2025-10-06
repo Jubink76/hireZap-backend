@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'cloudinary',
+    'cloudinary_storage',
 
     'accounts',
 
@@ -144,7 +146,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",  # Vite default port
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -152,12 +153,13 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = "unsafe-none"
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:5173',
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'accounts.authentication.CookieJWTAuthentication', # custome authentication
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -168,7 +170,16 @@ SIMPLE_JWT = {
     # Token lifetimes
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),   # Access token valid for 1 hour
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),   # Refresh token valid for 7 days
+    'AUTH_COOKIE': 'access',
+    'AUTH_COOKIE_SECURE': False,           # True in production with HTTPS
     'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_PATH': '/',
+    'AUTH_COOKIE_SAMESITE': 'None',        # Allow cross-site requests
+    'REFRESH_COOKIE': 'refresh',
+    'REFRESH_COOKIE_SECURE': False,
+    'REFRESH_COOKIE_HTTP_ONLY': True,
+    'REFRESH_COOKIE_PATH': '/',
+    'REFRESH_COOKIE_SAMESITE': 'None',
 
     # Refresh behavior
     'ROTATE_REFRESH_TOKENS': True,     # New refresh token each time
@@ -202,13 +213,21 @@ SIMPLE_JWT = {
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 86400  # 24 hours
-# Cross-site cookie handling (important for frontend-backend communication)
-SESSION_COOKIE_SAMESITE = 'None' # Allow cross-site requests (frontend hosted on different domain)
-CSRF_COOKIE_SAMESITE = 'None'
+# For development (localhost)
+# SESSION_COOKIE_SAMESITE = 'Lax'
+# CSRF_COOKIE_SAMESITE = 'Lax'
+# SESSION_COOKIE_SECURE = False
+# CSRF_COOKIE_SECURE = False
 
-# Secure flag → cookies only sent over HTTPS (must be True in production)
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# For production (HTTPS)
+# SESSION_COOKIE_SAMESITE = 'None'
+# CSRF_COOKIE_SAMESITE = 'None'
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
 
 # CORS allow headers → defines which headers frontend can send
 CORS_ALLOW_HEADERS = [
@@ -221,6 +240,13 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'cookie',
+]
+
+CORS_EXPOSE_HEADERS = [
+    'Content-Type',
+    'X-CSRFToken',
+    'Authorization',
 ]
 
 # email configuration
@@ -259,3 +285,23 @@ SOCIAL_AUTH_REDIRECT_URLS = {
 }
 
 GITHUB_REDIRECT_URI = 'http://localhost:5173/auth/github/callback'
+
+CLOUDINARY = {
+    'cloud_name':env('CLOUD_NAME'),
+    'api_key':env('API_KEY'),
+    'api_secret':env('API_SECRET'),
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
