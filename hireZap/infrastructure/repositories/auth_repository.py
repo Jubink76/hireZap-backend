@@ -28,6 +28,13 @@ class AuthUserRepository(AuthRepositoryPort):
         except User.DoesNotExist:
             return None
         
+    def get_by_id(self, user_id:int) -> Optional[UserEntity]:
+        try:
+            user = User.objects.get(id=user_id)
+            return self._to_entity(user)
+        except User.DoesNotExist:
+            return None
+        
     def authenticate(self, email:str, password: str) -> Optional[User]:
         user = self.get_by_email(email) 
         if not user:
@@ -54,3 +61,36 @@ class AuthUserRepository(AuthRepositoryPort):
             return True
         except User.DoesNotExist:
             return False
+    
+    def update_user_profile(self, user_id: int, user_entity: UserEntity) -> UserEntity:
+        """Update user profile"""
+        try:
+            user = User.objects.get(id=user_id)
+            user.full_name = user_entity.full_name
+            user.email = user_entity.email
+            user.phone = user_entity.phone
+            user.profile_image_url = user_entity.profile_image_url
+            user.location = user_entity.location
+            user.save()
+            return self._to_entity(user)
+        except User.DoesNotExist:
+            raise ValueError("User not found")
+    
+    def email_exists_for_other_user(self, email: str, user_id: int) -> bool:
+        return User.objects.filter(email=email).exclude(id=user_id).exists()
+    
+    def _to_entity(self, user: User) -> UserEntity:
+        return UserEntity(
+            id=user.id,
+            full_name=user.full_name,
+            email=user.email,
+            phone=user.phone,
+            password=None,  # Don't expose password
+            role=user.role,
+            profile_image_url=user.profile_image_url,
+            location=user.location,
+            is_admin=user.is_admin,
+            last_login=user.last_login,
+            created_at=user.created_at,
+            is_active=user.is_active
+        )

@@ -11,6 +11,7 @@ class UserEntity:
     password : Optional[str]
     role : str
     profile_image_url : Optional[str]
+    location:Optional[str] = None
     is_admin : bool = False
     last_login : Optional[datetime] = None
     created_at : Optional[datetime] = None

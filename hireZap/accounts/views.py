@@ -6,7 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from accounts.serializers import RegisterSerializer, LoginSerializer, UserReadSerializer, VerifyEmailSerializer,ResetPasswordSerializer
+from accounts.serializers import RegisterSerializer, LoginSerializer, UserReadSerializer, VerifyEmailSerializer,ResetPasswordSerializer,UserProfileUpdateSerializer
 from infrastructure.repositories.auth_repository import AuthUserRepository
 from infrastructure.redis_client import redis_client
 from infrastructure.repositories.otp_repository import OtpRepository
@@ -17,6 +17,7 @@ from core.use_cases.auth.verify_otp import VerifyOtpUsecase
 from core.use_cases.auth.reset_password import ResetPasswordUseCase
 from infrastructure.email.email_sender import EmailSender
 from infrastructure.repositories.pending_reg_repository import PendingRegistraionRepository
+from core.use_cases.auth.update_user_profile import UpdateUserProfileUseCase
 from core.entities.user import UserEntity
 from accounts.helpers import set_jwt_cookies, clear_jwt_cookies,get_tokens_for_user
 from accounts.models import User
@@ -37,6 +38,7 @@ login_use_case = LoginUserUsecase(user_repo)
 request_otp_use_case = RequestOtpUsecase(otp_repo, email_sender)
 verify_otp_use_case = VerifyOtpUsecase(otp_repo)
 pending_reg_repo = PendingRegistraionRepository(redis_client)
+update_user_profile_use_case = UpdateUserProfileUseCase(user_repo)
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
@@ -408,32 +410,89 @@ class RefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        logger.info("=" * 80)
+        logger.info("TOKEN REFRESH REQUEST")
+        logger.info(f"All cookies: {dict(request.COOKIES)}")
+        logger.info("=" * 80)
+        
         refresh_cookie = request.COOKIES.get('refresh')
-        print(request.COOKIES)
+        
         if not refresh_cookie:
-            return Response({"detail":"No refresh token"}, status= status.HTTP_401_UNAUTHORIZED)
+            logger.error("❌ No refresh token in cookies")
+            return Response(
+                {"detail": "No refresh token found"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
         try:
+            # Validate the refresh token
             token = RefreshToken(refresh_cookie)
-            user_id = token.get("user_id") or token.get("user") or token.get("user_id")
+            
+            # Get user ID from token
+            user_id = token.get('user_id')
             if not user_id:
-                return Response({"detail":"Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
-            user = User.objects.get(id=user_id)
-
-            #blacklist old token 
+                logger.error("❌ No user_id in token")
+                return Response(
+                    {"detail": "Invalid token structure"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Get user from database
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.error(f"❌ User {user_id} not found")
+                return Response(
+                    {"detail": "User not found"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            if not user.is_active:
+                logger.error(f"❌ User {user_id} is not active")
+                return Response(
+                    {"detail": "User account is disabled"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Blacklist old refresh token if rotation is enabled
             try:
                 token.blacklist()
-            except Exception:
-                pass
-            # create new token
+                logger.info("✅ Old token blacklisted")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not blacklist token: {e}")
+            
+            # Generate new tokens
             new_refresh = RefreshToken.for_user(user)
             new_access = new_refresh.access_token
-            response = Response({"detail":"refreshed"})
-            set_jwt_cookies(response, new_access, new_refresh, remember_me= False)
+            
+            logger.info(f"✅ New tokens generated for user {user.email}")
+            
+            # Set cookies and return response
+            response = Response({
+                "detail": "Token refreshed successfully",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "full_name": user.full_name
+                }
+            }, status=status.HTTP_200_OK)
+            
+            set_jwt_cookies(response, new_access, new_refresh, remember_me=False)
+            
             return response
-        
-        except TokenError:
-            return Response({"detail":"Invalid refresh token"}, status= status.HTTP_401_UNAUTHORIZED)
-        
+            
+        except TokenError as e:
+            logger.error(f"❌ Token error: {str(e)}")
+            return Response(
+                {"detail": "Invalid or expired refresh token"}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            logger.error(f"❌ Unexpected error: {str(e)}")
+            return Response(
+                {"detail": "Token refresh failed"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class LogoutView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -532,13 +591,58 @@ class CloudinarySignatureApiView(APIView):
         })
 
     
-class UpdateUserProfileView(generics.UpdateAPIView):
+class UpdateUserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = UserReadSerializer
 
-    def get_object(self):
-        return self.request.user
+    def get(self, request):
+        """ Get current user profile """
+        user_entity = user_repo.get_by_id(request.user.id)
+        if not user_entity:
+            return Response(
+                {'error':"User not found"},
+                status= status.HTTP_404_NOT_FOUND
+            )
+        serializer = UserReadSerializer(request.user)
+        return Response(serializer.data)
+    
+    def patch(self, request):
+        logger.info(f"Profile update request from user: {request.user.email}")
 
+        input_serializer = UserProfileUpdateSerializer(data= request.data)
+        if not input_serializer.is_valid():
+            return Response({
+                'message': 'Invalid input format',
+                'errors': input_serializer.errors
+            },status= status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            updated_entity = update_user_profile_use_case.execute(
+                user_id = request.user.id,
+                profile_data = input_serializer.validated_data
+            )
+            logger.info(f"Profile updated successfully for: {request.user.email}")
+            request.user.refresh_from_db()
+            output_serializer = UserReadSerializer(request.user)
+            
+            return Response({
+                'message': 'Profile updated successfully',
+                'user': output_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except ValueError as e:
+            logger.error(f"Validation error: {str(e)}")
+            return Response({
+                'message': 'Validation failed',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            return Response({
+                'message': 'An error occurred',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])

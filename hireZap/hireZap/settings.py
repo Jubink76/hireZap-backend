@@ -174,12 +174,12 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SECURE': False,           # True in production with HTTPS
     'AUTH_COOKIE_HTTP_ONLY': True,
     'AUTH_COOKIE_PATH': '/',
-    'AUTH_COOKIE_SAMESITE': 'None',        # Allow cross-site requests
+    'AUTH_COOKIE_SAMESITE': 'Lax',        # Allow cross-site requests
     'REFRESH_COOKIE': 'refresh',
     'REFRESH_COOKIE_SECURE': False,
     'REFRESH_COOKIE_HTTP_ONLY': True,
     'REFRESH_COOKIE_PATH': '/',
-    'REFRESH_COOKIE_SAMESITE': 'None',
+    'REFRESH_COOKIE_SAMESITE': 'Lax',
 
     # Refresh behavior
     'ROTATE_REFRESH_TOKENS': True,     # New refresh token each time
@@ -205,29 +205,13 @@ SIMPLE_JWT = {
     # For Blacklisting
     'JTI_CLAIM': 'jti',  # Unique token identifier for blacklist
 
-    # Sliding token settings (optional, not used in most cases)
-    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
-    'SLIDING_TOKEN_LIFETIME': timedelta(hours=1),
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
-
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_AGE = 86400  # 24 hours
-# For development (localhost)
-# SESSION_COOKIE_SAMESITE = 'Lax'
-# CSRF_COOKIE_SAMESITE = 'Lax'
-# SESSION_COOKIE_SECURE = False
-# CSRF_COOKIE_SECURE = False
 
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
-
-# For production (HTTPS)
-# SESSION_COOKIE_SAMESITE = 'None'
-# CSRF_COOKIE_SAMESITE = 'None'
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 86400  # 24 hours
 
 # CORS allow headers → defines which headers frontend can send
 CORS_ALLOW_HEADERS = [

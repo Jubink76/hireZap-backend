@@ -22,7 +22,8 @@ class UserReadSerializer(serializers.ModelSerializer):
                 "email", 
                 "phone", 
                 "role", 
-                "profile_image_url", 
+                "profile_image_url",
+                "location", 
                 "is_admin", 
                 "last_login", 
                 "created_at", 
@@ -35,4 +36,13 @@ class VerifyEmailSerializer(serializers.Serializer):
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(min_length=8)
+
+class UserProfileUpdateSerializer(serializers.Serializer):
+    full_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False, allow_blank=True)
+    location = serializers.CharField(required=False, allow_blank=True)
+    profile_image_url = serializers.CharField(required=False, allow_blank=True)
+    
+
 
