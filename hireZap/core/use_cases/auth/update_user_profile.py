@@ -46,15 +46,24 @@ class UpdateUserProfileUseCase:
         if phone:
             if not self._is_valid_phone(phone):
                 raise ValueError("Invalid phone number format")
+        else:
+            phone = None
+
+        profile_image_url = profile_data.get('profile_image_url', existing_user.profile_image_url)
+        if profile_image_url and profile_image_url.strip(): 
+            if not profile_image_url.startswith(('http://', 'https://')):
+                raise ValueError("Invalid profile image URL")
+        else:
+            profile_image_url = None
         
         updated_entity = UserEntity(
             id=existing_user.id,
             full_name=profile_data.get('full_name', existing_user.full_name).strip(),
             email=profile_data.get('email', existing_user.email).lower(),
-            phone=profile_data.get('phone', existing_user.phone),
+            phone=phone,
             password=existing_user.password,  # Don't update password here
             role=existing_user.role,  # Don't allow role change
-            profile_image_url=profile_data.get('profile_image_url', existing_user.profile_image_url),
+            profile_image_url=profile_image_url,
             location=location,
             is_admin=existing_user.is_admin,
             last_login=existing_user.last_login,

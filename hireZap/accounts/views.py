@@ -307,67 +307,19 @@ class RegisterOtpView(APIView):
         refresh = RefreshToken.for_user(created_user)
         access = refresh.access_token
 
+         # Debug logs
+        print("\n" + "="*80)
+        print("TOKEN GENERATION DEBUG")
+        print(f"User ID in token: {access.get('user_id')}")
+        print(f"Access token first 50 chars: {str(access)[:50]}")
+        print(f"Refresh token first 50 chars: {str(refresh)[:50]}")
+        print("="*80 + "\n")
+
         response = Response(UserReadSerializer(created_user).data, status = status.HTTP_201_CREATED)
         set_jwt_cookies(response,access, refresh, remember_me=False)
 
         return response
     
-
-# class LoginView(APIView):
-#     permission_classes = [permissions.AllowAny]
-#     renderer_classes = [JSONRenderer]
-    
-#     def post(self, request):
-#         serializer = LoginSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         email = serializer.validated_data['email']
-#         password = serializer.validated_data['password']
-#         remember_me = serializer.validated_data.get('remember_me', False)
-
-#         try:
-#             user = login_use_case.execute(email, password)
-#         except ValueError:
-#             return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-        
-#         # CREATE TOKENS
-#         refresh = RefreshToken.for_user(user)
-#         access = refresh.access_token
-        
-#         # Convert to strings
-#         access_str = str(access)
-#         refresh_str = str(refresh)
-        
-#         # Update last_login
-#         user_repo.update_last_login(user.id)
-        
-#         # IMPORTANT: Use JsonResponse instead of DRF Response for cookies
-#         response_data = {"user": UserReadSerializer(user).data}
-#         response = JsonResponse(response_data, status=200)
-        
-#         # Set JWT cookies
-#         set_jwt_cookies(response, access_str, refresh_str, remember_me=remember_me)
-        
-#         # Add CORS headers manually since we're using JsonResponse
-#         response["Access-Control-Allow-Origin"] = "http://localhost:5173"
-#         response["Access-Control-Allow-Credentials"] = "true"
-        
-#         # DEBUG LOGGING
-#         logger.info("=" * 80)
-#         logger.info("LOGIN - SETTING COOKIES")
-#         logger.info(f"User: {user.email}")
-#         logger.info(f"Access token (first 30 chars): {access_str[:30]}...")
-#         logger.info(f"Refresh token (first 30 chars): {refresh_str[:30]}...")
-#         logger.info(f"Remember me: {remember_me}")
-#         logger.info(f"Response type: {type(response)}")
-#         logger.info(f"Response cookies: {response.cookies}")
-        
-#         # Log each cookie
-#         for cookie_name, cookie in response.cookies.items():
-#             logger.info(f"Cookie '{cookie_name}': {dict(cookie)}")
-        
-#         logger.info("=" * 80)
-        
-#         return response
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     
@@ -418,7 +370,7 @@ class RefreshView(APIView):
         refresh_cookie = request.COOKIES.get('refresh')
         
         if not refresh_cookie:
-            logger.error("❌ No refresh token in cookies")
+            logger.error(" No refresh token in cookies")
             return Response(
                 {"detail": "No refresh token found"}, 
                 status=status.HTTP_401_UNAUTHORIZED
@@ -431,7 +383,7 @@ class RefreshView(APIView):
             # Get user ID from token
             user_id = token.get('user_id')
             if not user_id:
-                logger.error("❌ No user_id in token")
+                logger.error(" No user_id in token")
                 return Response(
                     {"detail": "Invalid token structure"}, 
                     status=status.HTTP_401_UNAUTHORIZED
@@ -441,14 +393,14 @@ class RefreshView(APIView):
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
-                logger.error(f"❌ User {user_id} not found")
+                logger.error(f" User {user_id} not found")
                 return Response(
                     {"detail": "User not found"}, 
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
             if not user.is_active:
-                logger.error(f"❌ User {user_id} is not active")
+                logger.error(f" User {user_id} is not active")
                 return Response(
                     {"detail": "User account is disabled"}, 
                     status=status.HTTP_401_UNAUTHORIZED
@@ -457,9 +409,9 @@ class RefreshView(APIView):
             # Blacklist old refresh token if rotation is enabled
             try:
                 token.blacklist()
-                logger.info("✅ Old token blacklisted")
+                logger.info("Old token blacklisted")
             except Exception as e:
-                logger.warning(f"⚠️ Could not blacklist token: {e}")
+                logger.warning(f" Could not blacklist token: {e}")
             
             # Generate new tokens
             new_refresh = RefreshToken.for_user(user)
@@ -482,13 +434,11 @@ class RefreshView(APIView):
             return response
             
         except TokenError as e:
-            logger.error(f"❌ Token error: {str(e)}")
             return Response(
                 {"detail": "Invalid or expired refresh token"}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
         except Exception as e:
-            logger.error(f"❌ Unexpected error: {str(e)}")
             return Response(
                 {"detail": "Token refresh failed"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

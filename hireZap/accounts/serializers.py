@@ -40,9 +40,9 @@ class ResetPasswordSerializer(serializers.Serializer):
 class UserProfileUpdateSerializer(serializers.Serializer):
     full_name = serializers.CharField(required=False)
     email = serializers.EmailField(required=False)
-    phone = serializers.CharField(required=False, allow_blank=True)
-    location = serializers.CharField(required=False, allow_blank=True)
-    profile_image_url = serializers.CharField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    location = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    profile_image_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
 
 

@@ -68,9 +68,9 @@ class AuthUserRepository(AuthRepositoryPort):
             user = User.objects.get(id=user_id)
             user.full_name = user_entity.full_name
             user.email = user_entity.email
-            user.phone = user_entity.phone
-            user.profile_image_url = user_entity.profile_image_url
-            user.location = user_entity.location
+            user.phone = user_entity.phone or None
+            user.profile_image_url = user_entity.profile_image_url or None
+            user.location = user_entity.location or None
             user.save()
             return self._to_entity(user)
         except User.DoesNotExist:

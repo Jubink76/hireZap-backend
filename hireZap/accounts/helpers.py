@@ -7,9 +7,11 @@ logger = logging.getLogger(__name__)
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+    refresh_token = str(refresh.access_token)
     return {
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
+        'access': access_token,
+        'refresh': refresh_token,
     }
 
 def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me: bool = False):
@@ -35,6 +37,15 @@ def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me
         samesite='Lax',
         path='/',
     )
+    
+    # Debug: Print what's being set
+    print("\n" + "="*80)
+    print("COOKIES BEING SET IN RESPONSE")
+    print(f"Access cookie value (first 50): {str(access_token)[:50]}...")
+    print(f"Access cookie max_age: 3600 seconds (1 hour)")
+    print(f"Refresh cookie max_age: {refresh_max_age} seconds")
+    print(f"All cookies in response: {response.cookies}")
+    print("="*80 + "\n")
     
     return response
 
