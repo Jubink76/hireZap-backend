@@ -76,14 +76,22 @@ class CompanyRepository(CompanyRepositoryPort):
             return self._model_to_entity(company_model)
         except CompanyModel.DoesNotExist:
             return None
-        
-    def update_verification_status(self,company_id:int, status:str, reason:str = None) -> Optional[Company]:
+  
+    def approve_company(self, company_id:int) -> Optional[Company]:
         try:
             company_model = CompanyModel.objects.get(id=company_id)
-            company_model.verification_status = status
-            if reason:
-                company_model.rejection_reason = reason
-            company_model.save()
+            company_model.verification_status = 'verified'
+            company_model.save(update_fields = ['verification_status', 'updated_at'])
+            return self._model_to_entity(company_model)
+        except CompanyModel.DoesNotExist:
+            return None
+    
+    def reject_company(self, company_id:int, reason:str) -> Optional[Company]:
+        try:
+            company_model = CompanyModel.objects.get(id=company_id)
+            company_model.verification_status = 'rejected'
+            company_model.rejection_reason = reason
+            company_model.save(update_fields=['verification_status','updated_at','rejection_reason'])
             return self._model_to_entity(company_model)
         except CompanyModel.DoesNotExist:
             return None

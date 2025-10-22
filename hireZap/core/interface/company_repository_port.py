@@ -26,8 +26,13 @@ class CompanyRepositoryPort(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def update_verification_status(self, company_id:int, status:str, reason:str = None) -> Optional[Company]:
-        """ update verification status """
+    def approve_company(self,company_id:int) -> Optional[Company]:
+        """ Approve company( mark as verified)"""
+        raise NotImplementedError
+    
+    @abstractmethod
+    def reject_company(self,company_id:int, reason:str) -> Optional[Company]:
+        """ Reject a company with a reason """
         raise NotImplementedError
     
     @abstractmethod
