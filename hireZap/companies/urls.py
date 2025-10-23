@@ -5,7 +5,9 @@ from companies.views import(
     ListPendingCompanies,
     FetchCompanyById,
     ApproveCompany,
-    RejectCompany
+    RejectCompany,
+    ListRejectedCompanies,
+    ListVerifiedCompanies,
 )
 
 urlpatterns = [
@@ -15,4 +17,6 @@ urlpatterns = [
     path('company/fetch-company/<int:company_id>/',FetchCompanyById.as_view(),name='fetch-company'),
     path('company/approve-company/<int:company_id>/',ApproveCompany.as_view(),name='approve-company'),
     path('company/reject-company/<int:company_id>/',RejectCompany.as_view(),name='reject-company'),
+    path('company/verified-companies/',ListVerifiedCompanies.as_view(),name='verified-companies'),
+    path('company/rejected-companies/',ListRejectedCompanies.as_view(),name='rejected-companies'),
 ]

@@ -104,6 +104,10 @@ class CompanyRepository(CompanyRepositoryPort):
         companies = CompanyModel.objects.filter(verification_status = 'verified')
         return [self._model_to_entity(c) for c in companies]
     
+    def get_rejected_companies(self) -> List[Company]:
+        companies = CompanyModel.objects.filter(verification_status = 'rejected')
+        return [self._model_to_entity(c) for c in companies]
+    
     def delete_company(self, company_id: int) -> bool:
         try:
             company_model = CompanyModel.objects.get(id=company_id)

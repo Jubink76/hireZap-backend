@@ -14,14 +14,19 @@ from core.use_cases.company.pending_company import GetPendingCompanyUseCase
 from core.use_cases.company.fetch_company_by_id import FetchCompanyByIdUsecase
 from core.use_cases.company.approve_company import ApproveCompanyUsecase
 from core.use_cases.company.reject_company import RejectCompanyUsecase
+from core.use_cases.company.list_verified_companies import ListVerifiedCompanyUsecase
+from core.use_cases.company.list_rejected_company import ListRejectedCompanyUsecase
 
 company_repo = CompanyRepository()
 create_use_case = CreateCompanyUseCase(company_repo)
 get_company_use_case = GetCompanyUseCase(company_repo)
-list_company_use_case = GetPendingCompanyUseCase(company_repo)
+list_pending_company_use_case = GetPendingCompanyUseCase(company_repo)
 fetch_company_by_id_use_case = FetchCompanyByIdUsecase(company_repo)
 approve_company_use_case = ApproveCompanyUsecase(company_repo)
-rejecet_company_use_case = RejectCompanyUsecase(company_repo)
+reject_company_use_case = RejectCompanyUsecase(company_repo)
+list_verified_company_use_case = ListVerifiedCompanyUsecase(company_repo)
+list_rejected_company_use_case = ListRejectedCompanyUsecase(company_repo)
+
 
 class CreateCompanyView(APIView):
     permission_classes = [IsAuthenticated]
@@ -80,12 +85,11 @@ class ListPendingCompanies(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        res = list_company_use_case.execute()
+        res = list_pending_company_use_case.execute()
         if not res['success']:
             return Response(
                 {'error': res['error']},status = status.HTTP_404_NOT_FOUND
             )
-        print(res)
         return Response(res['companies'], status= status.HTTP_200_OK)
 
 class ApproveCompany(APIView):
@@ -98,7 +102,7 @@ class ApproveCompany(APIView):
                 {'error': res['error']}, status= status.HTTP_404_NOT_FOUND
             )
         
-        # 🔥 SEND WEBSOCKET NOTIFICATION
+        # SEND WEBSOCKET NOTIFICATION
         company = res['company']
         recruiter_id = company.get('recruiter_id') or company.get('recruiter')
         
@@ -126,14 +130,14 @@ class RejectCompany(APIView):
 
     def post(self,request, company_id):
         reason = request.data.get('reason')
-        res = rejecet_company_use_case.execute(company_id, reason)
+        res = reject_company_use_case.execute(company_id, reason)
         if not res['success']:
             return Response(
                 {'error':res['error']},
                 status= status.HTTP_400_BAD_REQUEST
             )
         
-        # 🔥 SEND WEBSOCKET NOTIFICATION
+        # SEND WEBSOCKET NOTIFICATION
         company = res['company']
         recruiter_id = company.get('recruiter_id') or company.get('recruiter')
         
@@ -147,7 +151,7 @@ class RejectCompany(APIView):
                     'reason': reason
                 }
             )
-            
+
         return Response(
             {
                 'message': "Company rejected successfully",
@@ -155,3 +159,26 @@ class RejectCompany(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+class ListVerifiedCompanies(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self,request):
+        res = list_verified_company_use_case.execute()
+        if not res['success']:
+            return Response(
+                {'error': res['error']},status = status.HTTP_404_NOT_FOUND
+            )
+        return Response(res['companies'], status= status.HTTP_200_OK)
+    
+class ListRejectedCompanies(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self,request):
+        res = list_rejected_company_use_case.execute()
+        if not res['success']:
+            return Response(
+                {'error':res['error']},
+                status = status.HTTP_404_NOT_FOUND
+            )
+        return Response(res['companies'], status=status.HTTP_200_OK)

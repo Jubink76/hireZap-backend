@@ -109,6 +109,7 @@ class GoogleAuthView(APIView):
         
         data = {
             'user': {
+                'id':user.id,
                 'email': user.email,
                 'full_name': user.full_name,
                 'role': user.role,
@@ -199,6 +200,7 @@ class GithubAuthView(APIView):
         tokens = get_tokens_for_user(user)
         data = {
             'user': {
+                'id': user.id,
                 'email': user.email,
                 'full_name': user.full_name,
                 'role': user.role,

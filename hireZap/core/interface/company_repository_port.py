@@ -46,6 +46,11 @@ class CompanyRepositoryPort(ABC):
         raise NotImplementedError
     
     @abstractmethod
+    def get_rejected_companies(self) -> List[Company]:
+        """ list all the rejected companies """
+        raise NotImplementedError
+    
+    @abstractmethod
     def delete_company(self, company_id:int) -> bool:
         """ Delete company """
         raise NotImplementedError
