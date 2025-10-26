@@ -8,6 +8,7 @@ from companies.views import(
     RejectCompany,
     ListRejectedCompanies,
     ListVerifiedCompanies,
+    UpdateCompany
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     path('company/reject-company/<int:company_id>/',RejectCompany.as_view(),name='reject-company'),
     path('company/verified-companies/',ListVerifiedCompanies.as_view(),name='verified-companies'),
     path('company/rejected-companies/',ListRejectedCompanies.as_view(),name='rejected-companies'),
+    path('company/update-company/<int:company_id>/',UpdateCompany.as_view(),name='update-company'),
 ]

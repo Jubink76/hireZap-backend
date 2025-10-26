@@ -6,6 +6,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from companies.serializers import(
     CreateCompanySerializer,
+    UpdateCompanySerializer
 )
 from infrastructure.repositories.company_repository import CompanyRepository
 from core.use_cases.company.create_company import CreateCompanyUseCase
@@ -16,6 +17,7 @@ from core.use_cases.company.approve_company import ApproveCompanyUsecase
 from core.use_cases.company.reject_company import RejectCompanyUsecase
 from core.use_cases.company.list_verified_companies import ListVerifiedCompanyUsecase
 from core.use_cases.company.list_rejected_company import ListRejectedCompanyUsecase
+from core.use_cases.company.update_company import UpdateCompanyUseCase
 
 company_repo = CompanyRepository()
 create_use_case = CreateCompanyUseCase(company_repo)
@@ -26,7 +28,7 @@ approve_company_use_case = ApproveCompanyUsecase(company_repo)
 reject_company_use_case = RejectCompanyUsecase(company_repo)
 list_verified_company_use_case = ListVerifiedCompanyUsecase(company_repo)
 list_rejected_company_use_case = ListRejectedCompanyUsecase(company_repo)
-
+update_company_use_case = UpdateCompanyUseCase(company_repo)
 
 class CreateCompanyView(APIView):
     permission_classes = [IsAuthenticated]
@@ -182,3 +184,36 @@ class ListRejectedCompanies(APIView):
                 status = status.HTTP_404_NOT_FOUND
             )
         return Response(res['companies'], status=status.HTTP_200_OK)
+
+class UpdateCompany(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self,request,company_id):
+        if request.user.role != 'recruiter':
+            return Response(
+                {'error': 'Only recruiter can update companies'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = UpdateCompanySerializer(data=request.data, partial =True)
+        if not serializer.is_valid():
+            return Response(
+                { 'error': serializer.errors},
+                status= status.HTTP_400_BAD_REQUEST
+            )
+        res = update_company_use_case.execute(
+            company_id=company_id,
+            recruiter_id= request.user.id,
+            company_data = serializer.validated_data
+        )
+        if not res['success']:
+            error_status = status.HTTP_404_NOT_FOUND if res['error'] == 'Company not found' else status.HTTP_400_BAD_REQUEST
+            return Response(
+                {'error': res['error']},
+                status = error_status
+            )
+        print(res['company'])
+        return Response(
+            {'message' : res['message'],
+             'company' : res['company']},
+             status= status.HTTP_200_OK
+        )

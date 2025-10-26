@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'accounts',
     'companies',
     'notifications',
+    'job',
 
 ]
 
@@ -277,14 +278,16 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_CLIENT_ID')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_CLIENT_SECRET')
 SOCIAL_AUTH_GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID')
 SOCIAL_AUTH_GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET')
+SOCIAL_AUTH_LINKEDIN_CLIENT_ID = env('LINKEDIN_CLIENT_ID')
+SOCIAL_AUTH_LINKEDIN_CLIENT_SECRET = env('LINKEDIN_CLIENT_SECRET')
 
 # Social Auth URLs
 SOCIAL_AUTH_REDIRECT_URLS = {
     'google': 'http://localhost:5173/auth/callback/google',
-    'linkedin': 'http://localhost:5173/auth/callback/linkedin',
 }
 
 GITHUB_REDIRECT_URI = 'http://localhost:5173/auth/github/callback'
+LINKEDIN_REDIRECT_URI = 'http://localhost:5173/auth/linkedin/callback'
 
 CLOUDINARY = {
     'cloud_name':env('CLOUD_NAME'),

@@ -82,6 +82,21 @@ class UpdateCompanySerializer(serializers.Serializer):
     founded_year = serializers.CharField(max_length=4, required=False, allow_blank=True, allow_null=True)
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
+    def validate_founded_year(self,value):
+        if value and value.strip():
+            try:
+                year = int(value)
+                if year < 1800 or year > 2025:
+                    raise serializers.ValidationError("Pleae enter a valid year")
+            except ValueError:
+                raise serializers.ValidationError("Year must be a number")
+        return value
+    def validate_company_size(self, value):
+        if value:
+            allowed_sizes = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+']
+            if value not in allowed_sizes:
+                raise serializers.ValidationError(f"Company size must be one of: {', '.join(allowed_sizes)}")
+        return value
 
 class VerifyCompanySerializer(serializers.Serializer):
     """Serializer for verifying company (admin)"""

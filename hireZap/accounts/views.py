@@ -213,7 +213,101 @@ class GithubAuthView(APIView):
         resp = set_jwt_cookies(resp, tokens['access'],tokens['refresh'])
         return resp
 
-    
+class LinkedInAuthView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        code = request.data.get('code')
+        role = request.data.role('role','candidate')
+
+        if not code:
+            return Response({'detail': "Authorization code required"},status=status.HTTP_400_BAD_REQUEST)
+
+        #exchange authorization code for access token
+        token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+        payload = {
+            "grant_type" : "authorization_code",
+            "code" : code,
+            "redirect_uri" : settings.LINKEDIN_REDIRECT_URI,
+            "client_id" : settings.SOCIAL_AUTH_LINKEDIN_CLIENT_ID,
+            "client_secret" : settings.SOCIAL_AUTH_LINKEDIN_CLIENT_SECRET
+        } 
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        token_resp = requests.post(token_url, data=payload, headers=headers)
+        if token_resp.status_code != 200:
+            return Response({"detail": "Failed to fetch LinkedIn access token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            return Response({"detail": "No access token received from LinkedIn"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch user info from LinkedIn
+        headers = {"Authorization": f"Bearer {access_token}"}
+        profile_resp = requests.get("https://api.linkedin.com/v2/me", headers=headers)
+        email_resp = requests.get(
+            "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+            headers=headers
+        )
+
+        if profile_resp.status_code != 200 or email_resp.status_code != 200:
+            return Response({"detail": "Failed to fetch LinkedIn user info"}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile = profile_resp.json()
+        email_data = email_resp.json()
+
+        email = (
+            email_data.get("elements", [{}])[0]
+            .get("handle~", {})
+            .get("emailAddress")
+        )
+
+        first_name = profile.get("localizedFirstName", "")
+        last_name = profile.get("localizedLastName", "")
+        full_name = f"{first_name} {last_name}".strip()
+
+        if not email:
+            return Response({"detail": "LinkedIn account has no email"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check user existence
+        user = User.objects.filter(email=email).first()
+        if user:
+            if user.role != role:
+                return Response(
+                    {"error": f"This email already registered as {user.role}. Please login as {user.role}."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            changed = False
+            if user.full_name != full_name:
+                user.full_name = full_name; changed = True
+            if changed:
+                user.save()
+            created = False
+        else:
+            user = User.objects.create(
+                email=email,
+                full_name=full_name,
+                role=role,
+                profile_image_url="",  # optional, we can fetch profile pic separately
+            )
+            created = True
+
+        # Generate tokens & set cookies
+        tokens = get_tokens_for_user(user)
+        data = {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+                "profile_image_url": user.profile_image_url,
+            },
+            "created": created,
+        }
+
+        resp = Response(data, status=status.HTTP_200_OK)
+        resp = set_jwt_cookies(resp, tokens["access"], tokens["refresh"])
+        return resp
+      
 class RequestOtpView(APIView):
     permission_classes = [permissions.AllowAny]
 

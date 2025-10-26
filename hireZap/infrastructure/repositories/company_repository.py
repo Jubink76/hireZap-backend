@@ -72,6 +72,10 @@ class CompanyRepository(CompanyRepositoryPort):
             for key, value in company_data.items():
                 if hasattr(company_model, key):
                     setattr(company_model, key,value)
+                    
+            if company_data.get('verification_status') == 'pending':
+                company_model.rejection_reason = None
+
             company_model.save()
             return self._model_to_entity(company_model)
         except CompanyModel.DoesNotExist:
