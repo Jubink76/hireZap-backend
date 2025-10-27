@@ -18,7 +18,7 @@ class Company(models.Model):
     )
     company_name = models.CharField(max_length=255)
     logo_url = models.URLField(max_length=500, blank=True, null=True)
-    business_certificate = models.URLField(max_length=500, blank=True, null=True)
+    business_certificate = models.URLField(max_length=500, blank=True, null=True)   
     business_email = models.EmailField()
     phone_number = models.CharField(max_length=20)
     industry = models.CharField(max_length=100)

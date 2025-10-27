@@ -18,15 +18,15 @@ class Job:
     cover_image : Optional[str] = None
     role_summary : Optional[str] = None
     skills_required : Optional[str] = None # stored as json string
-    key_responsibilities = Optional[str] = None
-    requirements = Optional[str] = None
+    key_responsibilities : Optional[str] = None
+    requirements : Optional[str] = None
     benefits : Optional[str] = None
     application_link : Optional[str] = None
     application_deadline: Optional[datetime] = None
     applicants_visibility : Optional[str] = None #public, private
     status: str="active" # active, paused, closed, draft
     created_at : Optional[datetime] = None
-    updated_at : Optional[datetime]
+    updated_at : Optional[datetime] = None
 
     def to_dict(self):
         return {

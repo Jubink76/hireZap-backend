@@ -30,16 +30,41 @@ class JobRepository(JobRepositoryPort):
             updated_at=job_model.updated_at,
         )
     
-    def create_job(self,job_data:dict) -> Optional[Job]:
+    def create_job(self, job: Job) -> Optional[Job]:
+        """Create a new job posting"""
         try:
-            # parse skills if it is json string
-            if 'skills_required' in job_data and isinstance(job_data['skills_required'], str):
-                job_data['skills_required'] = json.loads(job_data['skills_required'])
+            # Parse skills_required if it's a JSON string
+            skills = job.skills_required
+            if isinstance(skills, str):
+                try:
+                    skills = json.loads(skills)
+                except json.JSONDecodeError:
+                    skills = []
 
-            job_model = JobModel.objects.create(**job_data)
+            job_model = JobModel.objects.create(
+                company_id=job.company_id,
+                recruiter_id=job.recruiter_id,
+                job_title=job.job_title,
+                location=job.location,
+                work_type=job.work_type,
+                employment_type=job.employment_type,
+                compensation_range=job.compensation_range,
+                posting_date=job.posting_date,
+                cover_image=job.cover_image,
+                role_summary=job.role_summary,
+                skills_required=skills,
+                key_responsibilities=job.key_responsibilities,
+                requirements=job.requirements,
+                benefits=job.benefits,
+                application_link=job.application_link,
+                application_deadline=job.application_deadline,
+                applicants_visibility=job.applicants_visibility,
+                status=job.status,
+            )
+
             return self._model_to_entity(job_model)
         except Exception as e:
-            print(f" Error creating in job: {str(e)}")
+            print(f"❌ Error creating job: {str(e)}")
             return None
     
     def get_job_by_id(self, job_id:int) -> Optional[Job]:

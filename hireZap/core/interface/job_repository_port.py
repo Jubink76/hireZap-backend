@@ -5,7 +5,7 @@ from core.entities.job import Job
 class JobRepositoryPort(ABC):
 
     @abstractmethod
-    def create_job(self,job_data:dict) -> Optional[Job]:
+    def create_job(self, job: Job) -> Optional[Job]:
         """ create a new job posting """
         raise NotImplementedError
     

@@ -26,7 +26,7 @@ class JobModel(models.Model):
         ('private', 'Private'),
     ]
 
-    company = models.ForeignKey('companies.CompanyModel', on_delete=models.CASCADE,related_name='jobs')
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE,related_name='jobs')
     recruiter = models.ForeignKey(User,on_delete=models.CASCADE,related_name='posted_jobs')
     job_title = models.CharField(max_length=255)
     location  = models.CharField(max_length=255)
@@ -59,7 +59,7 @@ class JobModel(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.job_title} at {self.company.company_name}"
+        return f"{self.job_title} at {self.company}"
     
 
 
