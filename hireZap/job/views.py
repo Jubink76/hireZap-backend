@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from job.serializers import CreateJobSerializer
 
 from core.use_cases.job.create_job import CreateJobUseCase
+from core.use_cases.job.fetch_active_jobs import FetchActiveJobsUsecase
+from core.use_cases.job.get_jobs_by_recruiter import GetJobsByRecruiterUsecase
 from infrastructure.repositories.job_repository import JobRepository
 
 import logging
@@ -12,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 job_repo = JobRepository()
 create_job_useCase = CreateJobUseCase(job_repo)
+fetch_active_jobs_usecase = FetchActiveJobsUsecase(job_repo)
+get_recrutir_jobs_usecase = GetJobsByRecruiterUsecase(job_repo)
 
 class CreateJobView(APIView):
     permission_classes = [IsAuthenticated]
@@ -74,5 +78,52 @@ class CreateJobView(APIView):
             logger.exception(f"💥 Unexpected error creating job: {str(e)}")
             return Response(
                 {'error': f'Internal server error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class FetchActiveJobs(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            res = fetch_active_jobs_usecase.execute()
+            if not res['success']:
+                logger.error(f" failed to fetch jobs: {res.get('error')}")
+                return Response(
+                    {'error': res.get('error', "Failed to fetch jobs")},
+                    status = status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            return Response(
+                {'jobs': res['jobs']},
+                status= status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.exception(f"💥 Unexpected error: {str(e)}")
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class GetJobsByRecruiter(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        try:
+            res = get_recrutir_jobs_usecase.execute(request.user.id)
+            if not res['success']:
+                logger.error(f" failed to fetch jobs: {res.get('error')}")
+                return Response(
+                    {'error': res.get('error', 'Failed to fetch jobs')},
+                    status= status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            return Response(
+                {'jobs' : res['jobs']},
+                status = status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.exception(f"💥 Unexpected error: {str(e)}")
+            return Response(
+                {'error': 'Internal server error'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

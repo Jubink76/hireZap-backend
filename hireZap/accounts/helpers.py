@@ -7,11 +7,9 @@ logger = logging.getLogger(__name__)
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
-    access_token = str(refresh.access_token)
-    refresh_token = str(refresh.access_token)
     return {
-        'access': access_token,
-        'refresh': refresh_token,
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
     }
 
 def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me: bool = False):

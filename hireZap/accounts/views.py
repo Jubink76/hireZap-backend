@@ -48,6 +48,29 @@ class CsrfCookieView(APIView):
     def get(self,request):
         return Response({"detail": "CSRF cookie set"})
     
+class CookieTokenRefreshView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self,request):
+        refresh_token =  request.COOKIES.get('refresh')
+        if not refresh_token:
+            return Response({'detail': 'No refresh token found'}, status= status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            new_access = refresh.access_token
+
+            # rotate refresh token
+            new_refresh = str(refresh)
+            response = Response({'detail': 'Token refreshed'}, status=status.HTTP_200_OK)
+            set_jwt_cookies(response, str(new_access), new_refresh)
+            return response
+        
+        except TokenError:
+            response = Response({'detail': 'Refresh token expired or invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+            clear_jwt_cookies(response)
+            return response
+    
 class GoogleAuthView(APIView):
     permission_classes = [permissions.AllowAny]  # allow any for login
 
