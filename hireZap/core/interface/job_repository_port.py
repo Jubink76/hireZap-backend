@@ -35,8 +35,28 @@ class JobRepositoryPort(ABC):
         raise NotImplementedError
     
     @abstractmethod
+    def get_all_jobs(self) -> List[Job]:
+        """ Get all jobs"""
+        raise NotImplementedError
+    
+    @abstractmethod
     def get_all_active_jobs(self) -> List[Job]:
         """ Get all active jobs """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_all_inactive_jobs(self) -> List[Job]:
+        """ Get all inactive jobs """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_all_paused_jobs(self) -> List[Job]:
+        """ Get all paused jobs """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_paused_job_recruiter(self,recruiter_id:int) -> List[Job]:
+        """ Get all paused Job by recruiter """
         raise NotImplementedError
     
     @abstractmethod

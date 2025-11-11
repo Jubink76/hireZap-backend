@@ -7,6 +7,10 @@ from job.serializers import CreateJobSerializer
 from core.use_cases.job.create_job import CreateJobUseCase
 from core.use_cases.job.fetch_active_jobs import FetchActiveJobsUsecase
 from core.use_cases.job.get_jobs_by_recruiter import GetJobsByRecruiterUsecase
+from core.use_cases.job.get_all_jobs import GetAllJobsUsecase
+from core.use_cases.job.get_all_inactive_jobs import GetInactiveJobsUsecase
+from core.use_cases.job.get_all_paused_jobs import GetPausedJobsUsecase
+from core.use_cases.job.get_job_by_id import GetJobBYIdUsecase
 from infrastructure.repositories.job_repository import JobRepository
 
 import logging
@@ -16,28 +20,26 @@ job_repo = JobRepository()
 create_job_useCase = CreateJobUseCase(job_repo)
 fetch_active_jobs_usecase = FetchActiveJobsUsecase(job_repo)
 get_recrutir_jobs_usecase = GetJobsByRecruiterUsecase(job_repo)
+get_all_jobs_usecase = GetAllJobsUsecase(job_repo)
+get_inactive_jobs_usecase = GetInactiveJobsUsecase(job_repo)
+get_paused_jobs_usecase = GetPausedJobsUsecase(job_repo)
+get_job_by_id_usecase = GetJobBYIdUsecase(job_repo)
 
 class CreateJobView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        logger.info(f"📥 Job creation request from user: {request.user.id}")
-        logger.debug(f"📦 Request data: {request.data}")
         if request.user.role != 'recruiter':
-            logger.warning(f"⚠️ Non-recruiter user {request.user.id} tried to create job")
             return Response(
                  {'error': 'Only recruiter can create jobs'},
                  status = status.HTTP_403_FORBIDDEN
             )
         serializer = CreateJobSerializer(data=request.data)
         if not serializer.is_valid():
-            logger.error(f"❌ Serializer validation failed: {serializer.errors}")
             return Response(
                 {'error': serializer.errors},
                 status= status.HTTP_400_BAD_REQUEST
             )
-        logger.info("✅ Serializer validation passed")
-        logger.debug(f"📋 Validated data: {serializer.validated_data}")
 
         company_id = request.data.get('company_id')
         if not company_id:
@@ -45,8 +47,6 @@ class CreateJobView(APIView):
                 {'error': 'Company Id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        logger.info(f"🏢 Creating job for company: {company_id}")
 
         try:
             result = create_job_useCase.execute(
@@ -54,18 +54,13 @@ class CreateJobView(APIView):
                 company_id=company_id,
                 job_data=serializer.validated_data
             )
-            
-            logger.debug(f"📤 Use case result: {result}")
-            
-            # ✅ FIX: Changed 'successs' to 'success'
+
             if not result['success']:
-                logger.error(f"❌ Job creation failed: {result.get('error')}")
                 return Response(
                     {'error': result['error']},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            logger.info(f"✅ Job created successfully: {result['job'].get('id')}")
+
             return Response(
                 {
                     'message': result['message'],
@@ -75,9 +70,31 @@ class CreateJobView(APIView):
             )
         
         except Exception as e:
-            logger.exception(f"💥 Unexpected error creating job: {str(e)}")
             return Response(
                 {'error': f'Internal server error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GetJobsByRecruiter(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        try:
+            res = get_recrutir_jobs_usecase.execute(request.user.id)
+            if not res['success']:
+
+                return Response(
+                    {'error': res.get('error', 'Failed to fetch jobs')},
+                    status= status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            return Response(
+                {'jobs' : res['jobs']},
+                status = status.HTTP_200_OK
+            )
+        except Exception as e:
+
+            return Response(
+                {'error': 'Internal server error'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -88,7 +105,6 @@ class FetchActiveJobs(APIView):
         try:
             res = fetch_active_jobs_usecase.execute()
             if not res['success']:
-                logger.error(f" failed to fetch jobs: {res.get('error')}")
                 return Response(
                     {'error': res.get('error', "Failed to fetch jobs")},
                     status = status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -99,22 +115,22 @@ class FetchActiveJobs(APIView):
                 status= status.HTTP_200_OK
             )
         except Exception as e:
-            logger.exception(f"💥 Unexpected error: {str(e)}")
             return Response(
                 {'error': 'Internal server error'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
-class GetJobsByRecruiter(APIView):
+        
+class GetAllJobs(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self,request):
         try:
-            res = get_recrutir_jobs_usecase.execute(request.user.id)
+            res = get_all_jobs_usecase.excecute()
             if not res['success']:
-                logger.error(f" failed to fetch jobs: {res.get('error')}")
+
                 return Response(
-                    {'error': res.get('error', 'Failed to fetch jobs')},
+                    {'error': res.get('error', 'Failed to fetch all jobs')},
                     status= status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
             return Response(
@@ -122,8 +138,79 @@ class GetJobsByRecruiter(APIView):
                 status = status.HTTP_200_OK
             )
         except Exception as e:
-            logger.exception(f"💥 Unexpected error: {str(e)}")
+
             return Response(
                 {'error': 'Internal server error'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class GetInactiveJobs(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        try:
+            res = get_inactive_jobs_usecase.execute()
+            if not res['success']:
+
+                return Response(
+                    {'error': res.get('error', 'Failed to fetch inactive jobs')},
+                    status= status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            return Response(
+                {'jobs' : res['jobs']},
+                status = status.HTTP_200_OK
+            )
+        except Exception as e:
+
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GetPausedJobs(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        try:
+            res = get_paused_jobs_usecase.execute()
+            if not res['success']:
+
+                return Response(
+                    {'error': res.get('error', 'Failed to fetch paused jobs')},
+                    status= status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            return Response(
+                {'jobs' : res['jobs']},
+                status = status.HTTP_200_OK
+            )
+        except Exception as e:
+
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GetJobDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request,job_id):
+        try:
+            res = get_job_by_id_usecase.execute(job_id)
+            if not res['success']:
+                return Response(
+                    {'error': res.get('error','Failed to fetch job details')},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            job_data = res['job']
+            logger.debug(f"[API View] Full response payload: {job_data}")
+            return Response(
+                {'job': res['job']},
+                status = status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+

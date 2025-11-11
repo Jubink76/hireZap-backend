@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'companies',
     'notifications',
     'job',
+    'candidate',
 
 ]
 

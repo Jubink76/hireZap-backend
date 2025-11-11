@@ -64,7 +64,6 @@ class JobRepository(JobRepositoryPort):
 
             return self._model_to_entity(job_model)
         except Exception as e:
-            print(f"❌ Error creating job: {str(e)}")
             return None
     
     def get_job_by_id(self, job_id:int) -> Optional[Job]:
@@ -110,12 +109,40 @@ class JobRepository(JobRepositoryPort):
         except JobModel.DoesNotExist:
             return False
     
+    def get_all_jobs(self) -> List[Job]:
+        try:
+            job_model = JobModel.objects.all()
+            return [self._model_to_entity(job) for job in job_model]
+        except JobModel.DoesNotExist:
+            return None
+    
     def get_all_active_jobs(self) -> List[Job]:
         try:
             job_model = JobModel.objects.filter(status = 'active').select_related('company','recruiter')
             return [self._model_to_entity(job) for job in job_model]
         except JobModel.DoesNotExist:
             return None
+        
+    def get_all_inactive_jobs(self) -> List[Job]:
+        try:
+            job_model = JobModel.objects.filter(status= 'closed')
+            return [self._model_to_entity(job) for job in job_model]
+        except JobModel.DoesNotExist:
+            return None
+    
+    def get_all_paused_jobs(self) -> List[Job]:
+        try:
+            job_model = JobModel.objects.filter(status = 'paused')
+            return [self._model_to_entity(job) for job in job_model]
+        except JobModel.DoesNotExist:
+            return None
+    
+    def get_paused_job_recruiter(self, recruiter_id:int) -> List[Job]:
+        try:
+            job_model = JobModel.objects.filter(recruiter_id=recruiter_id,status = 'paused')
+            return [self._model_to_entity(job) for job in job_model]
+        except JobModel.DoesNotExist:
+            return None 
         
     def update_job_status(self, job_id:int, status:str) -> Optional[Job]:
         try:
