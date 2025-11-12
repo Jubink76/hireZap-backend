@@ -11,7 +11,6 @@ from core.use_cases.candidate_profile.add_skills_usecase import AddSkillUsecase
 from core.use_cases.candidate_profile.add_certification_usecase import AddCertificationUsecase
 from infrastructure.repositories.candidate_repository import CandidateRepository
 
-# Import serializers
 from .serializers import (
     CandidateProfileSerializer,
     EducationSerializer,
