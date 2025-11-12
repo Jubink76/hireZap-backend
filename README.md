@@ -8,7 +8,6 @@ It is built with **Django REST Framework** following **Clean Architecture** prin
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
 - [Usage](#usage)
-- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -85,14 +84,3 @@ python manage.py migrate
 ```bash
 python manage.py runserver
 ```
-## 📂 Project Structure
-```markdown
-- hireZap/
-  - accounts (auth app)/
-  - core/
-    - entities/
-    - interface/
-    - usecases/
-  - hireZap (project-config)/
-  - infrastructure/
-    - repositories/
