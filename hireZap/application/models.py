@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from job.models import JobModel
+from candidate.models import CandidateProfile
 
 
 class ApplicationModel(models.Model):
@@ -17,8 +18,8 @@ class ApplicationModel(models.Model):
         ('hired', 'Hired'),
     ]
 
-    job = models.ForeignKey(JobModel, on_delete=models.CASCADE, related_name='application')
-    candidate = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='application')
+    job = models.ForeignKey(JobModel, on_delete=models.CASCADE, related_name='applications')
+    candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE,related_name='applications')
     # Resume & Portfolio
     resume_url = models.URLField(max_length=1024, blank=True, null=True)
     portfolio_url = models.URLField(max_length=1024, blank=True, null=True)
@@ -41,7 +42,7 @@ class ApplicationModel(models.Model):
     cover_letter = models.TextField(blank=True, null=True)
 
     # Application Status
-    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='applied')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='applied', db_index=True)
     rejection_reason = models.TextField(blank=True, null=True)
     interview_date = models.DateTimeField(blank=True, null=True)
     recruiter_notes = models.TextField(blank=True, null=True)
@@ -52,7 +53,7 @@ class ApplicationModel(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    submitted_at = models.DateTimeField(null=True, blank=True)  # When actually submitted (not draft)
+    submitted_at = models.DateTimeField(null=True, blank=True,db_index=True)  # When actually submitted (not draft)
 
     class Meta:
         db_table = 'applications'
@@ -62,6 +63,7 @@ class ApplicationModel(models.Model):
             models.Index(fields=['candidate', 'status']),
             models.Index(fields=['job', 'status']),
             models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['status','submitted_at']),
         ]
 
     def __str__(self):

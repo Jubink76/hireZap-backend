@@ -28,10 +28,10 @@ class JobModel(models.Model):
 
     company = models.ForeignKey('companies.Company', on_delete=models.CASCADE,related_name='jobs')
     recruiter = models.ForeignKey(User,on_delete=models.CASCADE,related_name='posted_jobs')
-    job_title = models.CharField(max_length=255)
-    location  = models.CharField(max_length=255)
-    work_type = models.CharField(max_length=20,choices=WORK_TYPE_CHOICES)
-    employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES)
+    job_title = models.CharField(max_length=255, db_index=True)
+    location  = models.CharField(max_length=255, db_index=True)
+    work_type = models.CharField(max_length=20,choices=WORK_TYPE_CHOICES, db_index=True)
+    employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES, db_index=True)
 
     compensation_range = models.CharField(max_length=100, null=True, blank=True)
     posting_date = models.DateField(auto_now_add=True)
@@ -44,7 +44,7 @@ class JobModel(models.Model):
     application_link = models.URLField(max_length=500, null=True, blank=True)
     application_deadline = models.DateField(null=True, blank=True)
     applicants_visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -56,6 +56,7 @@ class JobModel(models.Model):
             models.Index(fields=['recruiter', 'status']),
             models.Index(fields=['company', 'status']),
             models.Index(fields=['status', 'posting_date']),
+            models.Index(fields=['location','status']),
         ]
 
     def __str__(self):

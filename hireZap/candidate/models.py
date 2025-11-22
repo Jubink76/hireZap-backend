@@ -11,13 +11,13 @@ class CandidateProfile(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         primary_key=True,
-        related_name='candidate_profile'
+        related_name='candidateprofile'
     )
     bio = models.TextField(blank=True, null=True)
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True, db_index=True)
     linkedin_url = models.URLField(max_length=255, blank=True, null=True)
     github_url = models.URLField(max_length=255, blank=True, null=True)
-    location = models.CharField(max_length=255, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     resume_url = models.URLField(max_length=1024, blank=True, null=True)
     website = models.URLField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -25,6 +25,7 @@ class CandidateProfile(models.Model):
 
     class Meta:
         db_table = 'candidates'
+        indexes =[models.Index(fields=['location'])] # for location based filtering
     
     def __str__(self):
         return f"{self.user.full_name}'s profile "
@@ -34,7 +35,8 @@ class CandidateEducation(models.Model):
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
-        related_name='educations'
+        related_name='educations',
+        db_index=True
     )
     degree = models.CharField(max_length=255)
     field_of_study = models.CharField(max_length=255)
@@ -56,7 +58,8 @@ class CandidateExperience(models.Model):
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
-        related_name='experiences'
+        related_name='experiences',
+        db_index=True
     )
     company_name = models.CharField(max_length=255)
     role = models.CharField(max_length=255)
@@ -69,18 +72,25 @@ class CandidateExperience(models.Model):
     class Meta:
         db_table = 'candidate_experiences'
         ordering = ['-start_date']
+        indexes =[ models.Index(fields=['candidate'])]
 
     def __str__(self):
         return f"{self.role} at {self.company_name}"
+    
+    @property
+    def is_current(self):
+        """ Check if currently working """
+        return self.end_date is None
     
 class CandidateSkill(models.Model):
     """Skills - candidate is the user_id"""
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
-        related_name='skills'
+        related_name='skills',
+        db_index=True
     )
-    skill_name = models.CharField(max_length=100)
+    skill_name = models.CharField(max_length=100, db_index=True)
     proficiency = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         help_text="Proficiency level from 1 (beginner) to 5 (expert)"
@@ -105,7 +115,8 @@ class CandidateCertification(models.Model):
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
-        related_name='certifications'
+        related_name='certifications',
+        db_index=True
     )
     name = models.CharField(max_length=255)
     issuer = models.CharField(max_length=255)

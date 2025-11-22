@@ -85,17 +85,6 @@ class Experience:
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
-    
-    def is_current(self) -> bool:
-        """Check if currently working"""
-        return self.end_date is None
-    
-    def duration_in_months(self) -> int:
-        """Calculate experience duration in months"""
-        end = self.end_date or date.today()
-        years = end.year - self.start_date.year
-        months = end.month - self.start_date.month
-        return years * 12 + months
 
 @dataclass 
 class Skill:
@@ -115,21 +104,9 @@ class Skill:
             'skill_name': self.skill_name,
             'proficiency': self.proficiency,
             'years_of_experience': self.years_of_experience,
-            'proficiency_label': self.proficiency_label(),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
-    
-    def proficiency_label(self) -> str:
-        """Get text label for proficiency level"""
-        labels = {
-            1: "Beginner",
-            2: "Elementary",
-            3: "Intermediate",
-            4: "Advanced",
-            5: "Expert"
-        }
-        return labels.get(self.proficiency, "Unknown")
     
     def is_expert(self) -> bool:
         """Check if expert level"""
@@ -169,7 +146,4 @@ class Certification:
             return False
         return self.expiry_date < date.today()
     
-    def is_valid(self) -> bool:
-        """Check if certification is still valid"""
-        return not self.is_expired()
     
