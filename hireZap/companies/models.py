@@ -16,7 +16,7 @@ class Company(models.Model):
         related_name='company',
         limit_choices_to={'role': 'recruiter'}
     )
-    company_name = models.CharField(max_length=255)
+    company_name = models.CharField(max_length=255, db_index=True)
     logo_url = models.URLField(max_length=500, blank=True, null=True)
     business_certificate = models.URLField(max_length=500, blank=True, null=True)   
     business_email = models.EmailField()
@@ -31,12 +31,13 @@ class Company(models.Model):
     verification_status = models.CharField(
         max_length=20,
         choices=VERIFICATION_STATUS_CHOICES,
-        default='pending'
+        default='pending',
+        db_index=True
     )
     founded_year = models.CharField(max_length=4, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -44,8 +45,8 @@ class Company(models.Model):
         verbose_name_plural = 'Companies'
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['verification_status']),
-            models.Index(fields=['recruiter']),
+            models.Index(fields=['verification_status','created_at']),
+            models.Index(fields=['recruiter','verification_status']),
         ]
     
     def __str__(self):

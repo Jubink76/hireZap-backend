@@ -59,7 +59,7 @@ class CookieTokenRefreshView(APIView):
         try:
             refresh = RefreshToken(refresh_token)
             new_access = refresh.access_token
-
+            
             # rotate refresh token
             new_refresh = str(refresh)
             response = Response({'detail': 'Token refreshed'}, status=status.HTTP_200_OK)

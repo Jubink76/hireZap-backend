@@ -40,21 +40,28 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser,PermissionsMixin):
     id = models.BigAutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, db_index=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
     profile_image_url = models.CharField(max_length=1024,blank=True, null= True)
-    role = models.CharField(max_length=20,choices=Roles.choices, default=Roles.CANDIDATE)
+    role = models.CharField(max_length=20,choices=Roles.choices, default=Roles.CANDIDATE, db_index=True)
     is_admin = models.BooleanField(default=False)
-    is_active = models.BooleanField(default = True)
+    is_active = models.BooleanField(default = True, db_index=True)
     is_staff = models.BooleanField(default = False)
     last_login = models. DateTimeField(blank=True, null= True)
-    created_at = models.DateField(auto_now_add=True)
+    created_at = models.DateField(auto_now_add=True, db_index=True)
     location = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS =['full_name']
 
     objects = UserManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['role','-created_at']), # composite index for filtering and sorting 
+            models.Index(fields=['email','is_active'])  # composite for loging requirements
+        ]
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.email} ({self.role})"
