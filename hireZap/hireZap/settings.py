@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'job',
     'candidate',
     'application',
+    'selection_process',
 
 ]
 
