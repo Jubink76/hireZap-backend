@@ -6,6 +6,8 @@ class JobSerializer(serializers.ModelSerializer):
 
     company = CompanySerializer(read_only=True)
     recruiter_name = serializers.CharField(source='recruiter.full_name', read_only=True)
+    has_configured_stages = serializers.BooleanField(read_only=True)
+    configured_stages_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = JobModel

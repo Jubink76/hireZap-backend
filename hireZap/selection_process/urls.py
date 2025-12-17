@@ -6,7 +6,9 @@ from .views import (
     UpdateStageView,
     DeleteStageView,
     GetInactiveStagesView,
-    ReactivateStageView
+    ReactivateStageView,
+    SaveJobSelectionProcessView,
+    GetJobSelectionProcessView
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path('delete-stage/<int:stage_id>', DeleteStageView.as_view(), name='delete-stage'),
     path('stages/inactive/', GetInactiveStagesView.as_view(), name='get-inactive-stages'),
     path('stages/<int:stage_id>/reactivate/', ReactivateStageView.as_view(), name='reactivate-stage'),
+    path('jobs/<int:job_id>/',GetJobSelectionProcessView.as_view(), name='get-job-selection-process'),
+    path('jobs/<int:job_id>/save/',SaveJobSelectionProcessView.as_view(),name='save-job-selection-process'),
 ]

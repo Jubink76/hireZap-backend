@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from job.models import JobModel
 
 class SelectionStageModel(models.Model):
     TIER_CHOICES = [
@@ -49,3 +50,23 @@ class SelectionStageModel(models.Model):
             from django.utils.text import slugify
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+class SelectionProcessModel(models.Model):
+    job = models.ForeignKey(JobModel,on_delete=models.CASCADE, related_name='selection_stages')
+    stage = models.ForeignKey(SelectionStageModel, on_delete=models.CASCADE, related_name='job_processes')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'job_selection_process'
+        ordering = ['order']
+        unique_together = ['job','stage']
+        indexes = [
+            models.Index(fields=['job', 'is_active']),
+            models.Index(fields=['job', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.job.job_title} - {self.stage.name} (Order: {self.order})"

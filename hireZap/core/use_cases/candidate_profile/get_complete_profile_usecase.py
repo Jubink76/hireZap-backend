@@ -28,6 +28,6 @@ class GetCompleteProfileUsecase:
                 "expert_skills": len([s for s in skills if s.is_expert()]),
                 "total_experience_months": sum(exp.duration_in_months() for exp in experiences if hasattr(exp, 'duration_in_months')),
                 "current_role": next((exp.role for exp in experiences if exp.is_current()), None),
-                "valid_certifications": len([c for c in certifications if c.is_valid()])
+                "valid_certifications": len([c for c in certifications if c.is_expired()])
             }
         }
