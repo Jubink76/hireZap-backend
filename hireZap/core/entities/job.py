@@ -27,6 +27,8 @@ class Job:
     status: str="active" # active, paused, closed, draft
     created_at : Optional[datetime] = None
     updated_at : Optional[datetime] = None
+    has_configured_stages: bool = False
+    configured_stages_count: int = 0
 
     def to_dict(self):
         return {
@@ -51,6 +53,9 @@ class Job:
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'has_configured_stages': self.has_configured_stages,
+            'configured_stages_count': self.configured_stages_count,
+
         }
     
     def is_active(self) -> bool:

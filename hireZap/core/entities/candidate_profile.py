@@ -85,6 +85,9 @@ class Experience:
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+    def is_current(self) -> bool:
+        """ check is this last experience"""
+        return self.end_date is None
 
 @dataclass 
 class Skill:

@@ -3,8 +3,30 @@ import json
 from core.entities.job import Job
 from core.interface.job_repository_port import JobRepositoryPort
 from job.models import JobModel
+from django.db.models import Count, Exists, OuterRef, Q
+from selection_process.models import SelectionProcessModel
 
 class JobRepository(JobRepositoryPort):
+
+    def _get_base_queryset(self):
+        """
+        Base queryset with stage annotations.
+        This adds has_configured_stages and configured_stages_count to all queries.
+        """
+        return JobModel.objects.annotate(
+            has_configured_stages=Exists(
+                SelectionProcessModel.objects.filter(
+                    job=OuterRef('pk'),
+                    is_active=True
+                )
+            ),
+            configured_stages_count=Count(
+                'selection_stages',
+                filter=Q(selection_stages__is_active=True),
+                distinct=True
+            )
+        )
+    
     def _model_to_entity(self,job_model:JobModel) -> Job:
         return Job(
             id=job_model.id,
@@ -62,94 +84,136 @@ class JobRepository(JobRepositoryPort):
                 status=job.status,
             )
 
+            job_model = self._get_base_queryset().get(id=job_model.id)
             return self._model_to_entity(job_model)
         except Exception as e:
             return None
     
-    def get_job_by_id(self, job_id:int) -> Optional[Job]:
+    def get_job_by_id(self, job_id: int) -> Optional[Job]:
         try:
-            job_model = JobModel.objects.select_related('company','recruiter').get(id=job_id)
+            job_model = self._get_base_queryset().select_related(
+                'company', 'recruiter'
+            ).get(id=job_id)
             return self._model_to_entity(job_model)
         except JobModel.DoesNotExist:
             return None
-    
-    def get_jobs_by_recruiter(self, recruiter_id:int) -> List[Job]:
-        try:
-            job_model = JobModel.objects.filter(recruiter_id=recruiter_id).select_related('company')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
+        except Exception as e:
+            print(f"Error fetching job: {str(e)}")
             return None
-    
-    def get_jobs_by_company(self, company_id:int) -> List[Job]:
+        
+    def get_jobs_by_recruiter(self, recruiter_id: int) -> List[Job]:
         try:
-            job_model = JobModel.objects.filter(company_id=company_id).select_related('recruiter')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None
+            job_models = self._get_base_queryset().filter(
+                recruiter_id=recruiter_id
+            ).select_related('company')
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching jobs: {str(e)}")
+            return []
+        
     
-    def update_job(self, job_id:int, job_data:dict) -> Optional[Job]:
+    def get_jobs_by_company(self, company_id: int) -> List[Job]:
+        try:
+            job_models = self._get_base_queryset().filter(
+                company_id=company_id
+            ).select_related('recruiter')
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching jobs: {str(e)}")
+            return []
+    
+    def update_job(self, job_id: int, job_data: dict) -> Optional[Job]:
         try:
             job_model = JobModel.objects.get(id=job_id)
-            if 'skills_required' in job_data and isinstance(job_data['skills_required'],str):
+            if 'skills_required' in job_data and isinstance(job_data['skills_required'], str):
                 job_data['skills_required'] = json.loads(job_data['skills_required'])
 
             for key, value in job_data.items():
                 if hasattr(job_model, key):
-                    setattr(job_model,key,value)
+                    setattr(job_model, key, value)
             job_model.save()
+            
+            # Refresh with annotations
+            job_model = self._get_base_queryset().get(id=job_id)
             return self._model_to_entity(job_model)
         except JobModel.DoesNotExist:
             return None
+        except Exception as e:
+            print(f"Error updating job: {str(e)}")
+            return None
     
-    def delete_job(self, job_id) -> bool:
+    def delete_job(self, job_id: int) -> bool:
         try:
             job_model = JobModel.objects.get(id=job_id)
             job_model.delete()
             return True
         except JobModel.DoesNotExist:
             return False
+        except Exception as e:
+            print(f"Error deleting job: {str(e)}")
+            return False
     
     def get_all_jobs(self) -> List[Job]:
         try:
-            job_model = JobModel.objects.all()
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None
+            job_models = self._get_base_queryset().all()
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching all jobs: {str(e)}")
+            return []
     
     def get_all_active_jobs(self) -> List[Job]:
         try:
-            job_model = JobModel.objects.filter(status = 'active').select_related('company','recruiter')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None
+            job_models = self._get_base_queryset().filter(
+                status='active'
+            ).select_related('company', 'recruiter')
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching active jobs: {str(e)}")
+            return []
         
     def get_all_inactive_jobs(self) -> List[Job]:
         try:
-            job_model = JobModel.objects.filter(status= 'closed')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None
+            job_models = self._get_base_queryset().filter(
+                status='closed'
+            )
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching inactive jobs: {str(e)}")
+            return []
     
     def get_all_paused_jobs(self) -> List[Job]:
         try:
-            job_model = JobModel.objects.filter(status = 'paused')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None
+            job_models = self._get_base_queryset().filter(
+                status='paused'
+            )
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching paused jobs: {str(e)}")
+            return []
     
-    def get_paused_job_recruiter(self, recruiter_id:int) -> List[Job]:
+    def get_paused_job_recruiter(self, recruiter_id: int) -> List[Job]:
         try:
-            job_model = JobModel.objects.filter(recruiter_id=recruiter_id,status = 'paused')
-            return [self._model_to_entity(job) for job in job_model]
-        except JobModel.DoesNotExist:
-            return None 
+            job_models = self._get_base_queryset().filter(
+                recruiter_id=recruiter_id,
+                status='paused'
+            )
+            return [self._model_to_entity(job) for job in job_models]
+        except Exception as e:
+            print(f"Error fetching paused jobs: {str(e)}")
+            return []
         
-    def update_job_status(self, job_id:int, status:str) -> Optional[Job]:
+    def update_job_status(self, job_id: int, status: str) -> Optional[Job]:
         try:
             job_model = JobModel.objects.get(id=job_id)
             job_model.status = status
             job_model.save()
+            
+            # Refresh with annotations
+            job_model = self._get_base_queryset().get(id=job_id)
             return self._model_to_entity(job_model)
         except JobModel.DoesNotExist:
+            return None
+        except Exception as e:
+            print(f"Error updating job status: {str(e)}")
             return None
     
