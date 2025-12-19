@@ -26,4 +26,5 @@ urlpatterns = [
     path('api/application/',include('application.urls')),
     path('api/admin/',include('admin.urls')),
     path('api/selection-process/', include('selection_process.urls')),
+    path('api/subscription/',include('subscription.urls')),
 ]

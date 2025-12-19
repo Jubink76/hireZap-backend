@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'candidate',
     'application',
     'selection_process',
+    'subscription',
 
 ]
 
