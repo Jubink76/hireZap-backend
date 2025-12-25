@@ -14,6 +14,7 @@ class SubscriptionPlan:
     user_type : str #recruiter / candidate
     badge: Optional[str] = None
     is_default: bool = False
+    is_free: bool = False
     is_active: bool = True
     id: Optional[int] = None
     created_at: Optional[datetime] = None
@@ -34,6 +35,7 @@ class SubscriptionPlan:
             'userType':self.user_type,
             'badge':self.badge,
             'isDefault':self.is_default,
+            'isFree':self.is_free,
             'isActive':self.is_active,
             'created_at':self.created_at.isoformat() if self.created_at else None,
             'updated_at':self.updated_at.isoformat() if self.updated_at else None,
@@ -41,4 +43,4 @@ class SubscriptionPlan:
     
     def is_free(self) -> bool:
         """Check if plan is free"""
-        return self.price == 0
+        return self.price == 0 or self.is_free
