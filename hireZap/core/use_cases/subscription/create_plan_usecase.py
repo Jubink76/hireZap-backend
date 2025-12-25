@@ -29,6 +29,7 @@ class CreatePlanUsecase:
                 user_type=plan_data['user_type'],
                 badge=plan_data.get('badge'),  
                 is_default=plan_data.get('is_default', False),  
+                is_free = plan_data.get('is_free',False),
                 is_active=plan_data.get('is_active', True)
 
             )

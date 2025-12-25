@@ -32,6 +32,7 @@ class SubscriptionPlanModel(models.Model):
     user_type = models.CharField(max_length=20,choices=USER_TYPE_CHOICES)
     badge = models.CharField(max_length=50, blank=True, null=True)
     is_default = models.BooleanField(default=False)
+    is_free = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -48,11 +49,23 @@ class SubscriptionPlanModel(models.Model):
         return f"{self.name} - {self.user_type} (₹{self.price}/{self.period})"
     
     def save(self, *args, **kwargs):
-        # if this plan is set as default, remove default from others
-        if self.is_default:
+        if self.is_free:
+            self.price = 0
+            self.is_default = True
+            self.card_color = 'gray'
+
+        if self.is_free:
             SubscriptionPlanModel.objects.filter(
                 user_type = self.user_type,
-                is_default = True
+                is_free = True
+            ).exclude(id=self.id).update(is_free=False,is_default=False)
+
+        # if this plan is set as default, remove default from others
+        if self.is_default and not self.is_free:
+            SubscriptionPlanModel.objects.filter(
+                user_type = self.user_type,
+                is_default = True,
+                is_free = False
             ).exclude(id=self.id).update(is_default=False)
         super().save(*args, **kwargs)
 
