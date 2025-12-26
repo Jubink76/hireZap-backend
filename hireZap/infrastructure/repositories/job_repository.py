@@ -3,7 +3,7 @@ import json
 from core.entities.job import Job
 from core.interface.job_repository_port import JobRepositoryPort
 from job.models import JobModel
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q, Case, When, BooleanField
 from selection_process.models import SelectionProcessModel
 
 class JobRepository(JobRepositoryPort):
@@ -50,6 +50,8 @@ class JobRepository(JobRepositoryPort):
             status=job_model.status,
             created_at=job_model.created_at,
             updated_at=job_model.updated_at,
+            configured_stages_count=getattr(job_model, 'configured_stages_count', 0),
+            has_configured_stages=getattr(job_model, 'has_configured_stages', False),
         )
     
     def create_job(self, job: Job) -> Optional[Job]:
@@ -105,7 +107,21 @@ class JobRepository(JobRepositoryPort):
         try:
             job_models = self._get_base_queryset().filter(
                 recruiter_id=recruiter_id
-            ).select_related('company')
+            ).annotate(
+                configured_stages_count = Count(
+                    'selection_stages',
+                    filter=Q(selection_stages__is_active=True),
+                    distinct=True
+                ),
+                has_configured_stages = Case(
+                    When(
+                        selection_stages__is_active=True,
+                        then=True
+                    ),
+                    default = False,
+                    output_field=BooleanField()
+                )
+            ).select_related('company').order_by('-created_at')
             return [self._model_to_entity(job) for job in job_models]
         except Exception as e:
             print(f"Error fetching jobs: {str(e)}")

@@ -35,6 +35,8 @@ class JobSerializer(serializers.ModelSerializer):
             'status',
             'created_at',
             'updated_at',
+            'has_configured_stages',
+            'configured_stages_count',
         ]
         read_only_fields = [
             'id',
@@ -42,7 +44,9 @@ class JobSerializer(serializers.ModelSerializer):
             'recruiter',
             'created_at',
             'updated_at',
-            'posting_date'
+            'posting_date',
+            'has_configured_stages',
+            'configured_stages_count',
         ]
 
 class CreateJobSerializer(serializers.Serializer):
