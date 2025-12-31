@@ -1,0 +1,206 @@
+import google.generativeai as genai
+from typing import Dict, List
+import json
+
+class ATSScorer:
+    """Ai powered ATS scoring by using Google Gemini"""
+
+    def __init__(self, api_key:str):
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+
+    def calculate_score(
+            self,
+            resume_text:str,
+            parsed_data:Dict,
+            ats_config:Dict,
+            job_requirements:Dict
+        )-> Dict:
+        """Calculate comprehensive score"""
+
+        #skill score
+        skills_score = self._calculate_skills_score(
+            parsed_data['matched_skills'],
+            parsed_data['missing_skills'],
+            ats_config
+        )
+
+        #experience score
+        experience_score = self._experiece_score(
+            parsed_data['experience_years'],
+            ats_config['minimum_experience_years']
+        )
+
+        # 3. Education Score
+        education_score = self._calculate_education_score(
+            parsed_data['education'],
+            ats_config.get('required_education')
+        )
+        
+        # 4. Keywords Score
+        keywords_score = self._calculate_keywords_score(
+            parsed_data['matched_keywords'],
+            ats_config.get('important_keywords', [])
+        )
+        
+        # 5. Calculate weighted overall score
+        overall_score = (
+            (skills_score * ats_config['skills_weight'] / 100) +
+            (experience_score * ats_config['experience_weight'] / 100) +
+            (education_score * ats_config['education_weight'] / 100) +
+            (keywords_score * ats_config['keywords_weight'] / 100)
+        )
+        
+        # 6. Get AI analysis
+        ai_analysis = self._get_ai_analysis(
+            resume_text,
+            job_requirements,
+            overall_score
+        )
+        
+        # 7. Make decision
+        decision = 'qualified' if overall_score >= ats_config['passing_score'] else 'rejected'
+        
+        # Auto-rejection rules
+        if ats_config.get('auto_reject_missing_skills') and len(parsed_data['missing_skills']) > 0:
+            decision = 'rejected'
+        
+        if ats_config.get('auto_reject_below_experience') and parsed_data['experience_years'] < ats_config['minimum_experience_years']:
+            decision = 'rejected'
+        
+        return {
+            'overall_score': int(overall_score),
+            'skills_score': skills_score,
+            'experience_score': experience_score,
+            'education_score': education_score,
+            'keywords_score': keywords_score,
+            'decision': decision,
+            'ai_summary': ai_analysis['summary'],
+            'strengths': ai_analysis['strengths'],
+            'weaknesses': ai_analysis['weaknesses'],
+            'recommendation_notes': ai_analysis['notes']
+        }
+
+    def _calculate_skills_score(
+            self,
+            matched_skills: List[str],
+            missing_skills: List[str],
+            ats_config:Dict
+        ) -> int:
+        total_required = len(matched_skills) + len(missing_skills)
+        if total_required == 0:
+            return 50
+        match_percentage = (len(matched_skills) / total_required) * 100
+        return int(match_percentage)
+    
+
+    def _calculate_experience_score(
+        self,
+        candidate_years: float,
+        required_years: int
+    ) -> int:
+        """Calculate experience score"""
+        if required_years == 0:
+            return 100  # No requirement
+        
+        if candidate_years >= required_years:
+            # Extra experience gives bonus points (capped at 100)
+            bonus = min((candidate_years - required_years) * 10, 20)
+            return min(100, 100 + bonus)
+        else:
+            # Penalize for missing experience
+            return int((candidate_years / required_years) * 100)
+    
+    def _calculate_education_score(
+        self,
+        candidate_education: str,
+        required_education: str
+    ) -> int:
+        """Calculate education score"""
+        if not required_education:
+            return 100
+        
+        education_hierarchy = {
+            'diploma': 1,
+            'associate': 2,
+            'bachelor': 3,
+            'master': 4,
+            'phd': 5,
+            'doctorate': 5
+        }
+        
+        candidate_level = education_hierarchy.get(candidate_education.lower(), 0)
+        required_level = education_hierarchy.get(required_education.lower(), 0)
+        
+        if candidate_level >= required_level:
+            return 100
+        else:
+            return max(0, int((candidate_level / required_level) * 100))
+    
+    def _calculate_keywords_score(
+        self,
+        matched_keywords: List[str],
+        important_keywords: List[str]
+    ) -> int:
+        """Calculate keywords match score"""
+        if len(important_keywords) == 0:
+            return 100
+        
+        match_percentage = (len(matched_keywords) / len(important_keywords)) * 100
+        return int(match_percentage)
+    
+    def _get_ai_analysis(
+        self,
+        resume_text: str,
+        job_requirements: Dict,
+        overall_score: float
+    ) -> Dict:
+        """Get AI-powered analysis using Gemini"""
+        
+        prompt = f"""
+            Analyze this resume for the given job and provide insights.
+
+            **Job Requirements:**
+            - Skills: {', '.join(job_requirements.get('skills_required', []))}
+            - Responsibilities: {job_requirements.get('key_responsibilities', '')}
+            - Requirements: {job_requirements.get('requirements', '')}
+
+            **Resume Text:**
+            {resume_text[:3000]}  # Limit to avoid token limits
+
+            **Current ATS Score:** {overall_score}/100
+
+            Provide your response as a JSON object:
+            {{
+                "summary": "<2-3 sentence overall assessment>",
+                "strengths": [<list of 3-5 key strengths>],
+                "weaknesses": [<list of 3-5 areas of concern>],
+                "notes": "<brief recommendation notes>"
+            }}
+
+            Provide ONLY the JSON response.
+            """
+        
+        try:
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Clean JSON
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            result = json.loads(response_text.strip())
+            return result
+            
+        except Exception as e:
+            # Fallback if AI fails
+            return {
+                'summary': f"Automated screening completed with score: {overall_score}/100",
+                'strengths': ["Resume processed successfully"],
+                'weaknesses': ["Detailed analysis unavailable"],
+                'notes': "System analysis only"
+            }

@@ -27,4 +27,6 @@ urlpatterns = [
     path('api/admin/',include('admin.urls')),
     path('api/selection-process/', include('selection_process.urls')),
     path('api/subscription/',include('subscription.urls')),
+    path('api/resume-screening/',include('resume_screening.urls')),
+    
 ]

@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'cloudinary',
     'cloudinary_storage',
     'channels',
+    'django_celery_results',
+    'django_celery_beat',
 
 
     'accounts',
@@ -58,6 +60,7 @@ INSTALLED_APPS = [
     'application',
     'selection_process',
     'subscription',
+    'resume_screening',
 
 ]
 
@@ -97,12 +100,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hireZap.wsgi.application'
 ASGI_APPLICATION = 'hireZap.asgi.application'
 
+# redis configuration
+REDIS_HOST = env('REDIS_HOST')
+REDIS_PORT = int(env('REDIS_PORT'))
+
 # Channel Layers (Using Redis)
+REDIS_DB_CHANNELS = int(env('REDIS_DB_CHANNELS'))
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+            'hosts': [
+                (REDIS_HOST,REDIS_PORT,)
+            ],
         },
     },
 }
@@ -265,9 +275,7 @@ EMAIL_USE_TLS = env('EMAIL_USE_TLS', cast=bool, default=True)
 EMAIL_USE_SSL = env('EMAIL_USE_SSL', cast=bool, default=False)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
-# redis configuration for otp
-REDIS_HOST = env('REDIS_HOST')
-REDIS_PORT = int(env('REDIS_PORT'))
+#Redis table for otp
 REDIS_DB = int(env('REDIS_DB'))
 
 AUTHENTICATION_BACKENDS = (
@@ -299,10 +307,14 @@ CLOUDINARY = {
     'api_secret':env('API_SECRET'),
 }
 
+GEMINI_API_KEY = env('GEMINI_API_KEY')
+
+#cache configuration
+#REDIS_DB_CACHE = int(env('REDIS_DB_CACHE'))
 # CACHES = {
 #     'default': {
 #         'BACKEND': 'django_redis.cache.RedisCache',
-#         'LOCATION': 'redis://127.0.0.1:6379/1',
+#         'LOCATION': 'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CACHE}',
 #         'OPTIONS': {
 #             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
 #             'PARSER_CLASS': 'redis.connection.HiredisParser',
@@ -314,6 +326,24 @@ CLOUDINARY = {
 #         'TIMEOUT': 300,  # Default 5 minutes
 #     }
 # }
+
+# celery configuration
+REDIS_DB_CELERY_BROKER = int(env('REDIS_DB_CELERY_BROKER'))
+REDIS_DB_CELERY_RESULTS = int(env('REDIS_DB_CELERY_RESULTS'))
+CELERY_BROKER_URL = 'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CELERY_BROKER}'
+CELERY_RESULTS_BACKEND = 'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CELERY_RESULTS}'
+
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELER_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 60*10
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 
 LOGGING = {
     'version': 1,

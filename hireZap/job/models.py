@@ -45,6 +45,23 @@ class JobModel(models.Model):
     application_deadline = models.DateField(null=True, blank=True)
     applicants_visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', db_index=True)
+    #screening status
+    screening_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_started', 'Not Started'),
+            ('in_progress', 'In progress'),
+            ('completed', 'Completed'),
+            ('paused', 'Paused'),
+        ],
+        default='not_started'
+    )
+
+    total_application_count = models.IntegerField(default=0)
+    screened_application_count = models.IntegerField(default=0)
+
+    screenig_started_at = models.DateTimeField(null=True, blank=True)
+    screening_completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
