@@ -59,6 +59,51 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'application': event['application'],
             'message': f"New application for {event['job_title']}"
         }))
+    
+    async def screening_progress(self, event):
+        """Send screening progress update"""
+        await self.send(text_data=json.dumps({
+            'type': 'screening_progress',
+            'job_id': event['job_id'],
+            'progress': event['progress']
+        }))
+
+    async def resume_screening_completed(self, event):
+        """Send screening completion notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'resume_screening_completed',
+            'application_id': event['application_id'],
+            'job_title': event['job_title'],
+            'decision': event['decision'],
+            'score': event['score']
+        }))
+
+    async def screening_progress_update(self, event):
+        """Send progress update to recruiter"""
+        await self.send(text_data=json.dumps({
+            'type': 'screening_progress_update',
+            'job_id': event['job_id'],
+            'screened_count': event['screened_count'],
+            'total_count': event['total_count']
+        }))
+
+    async def bulk_screening_started(self, event):
+        """Notify bulk screening started"""
+        await self.send(text_data=json.dumps({
+            'type': 'bulk_screening_started',
+            'job_id': event['job_id'],
+            'job_title': event['job_title'],
+            'total_applications': event['total_applications']
+        }))
+
+    async def bulk_screening_completed(self, event):
+        """Notify bulk screening completed"""
+        await self.send(text_data=json.dumps({
+            'type': 'bulk_screening_completed',
+            'job_id': event['job_id'],
+            'job_title': event['job_title'],
+            'total_screened': event['total_screened']
+        }))
 
 
 class CompanyConsumer(AsyncWebsocketConsumer):

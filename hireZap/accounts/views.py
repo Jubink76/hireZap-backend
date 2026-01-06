@@ -27,6 +27,9 @@ import hashlib
 import time
 from django.http import JsonResponse 
 from rest_framework.decorators import api_view, permission_classes
+
+from infrastructure.services.storage_factory import StorageFactory
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -647,16 +650,32 @@ class CloudinarySignatureApiView(APIView):
         logger.info("=" * 80)
         
         folder = request.query_params.get("folder", "profiles")
+        resource_type = request.query_params.get("resource_type", "image")
         timestamp = int(time.time())
-        params_to_sign = f"folder={folder}&timestamp={timestamp}{settings.CLOUDINARY['api_secret']}"
-        signature = hashlib.sha1(params_to_sign.encode('utf-8')).hexdigest()
+
+        # ✅ Build params dictionary
+        params_to_sign = {
+            "timestamp": timestamp,
+            "folder": folder,
+        }
+        
+        sorted_params = sorted(params_to_sign.items())
+        params_string = "&".join([f"{k}={v}" for k, v in sorted_params])
+        signature_string = f"{params_string}{settings.CLOUDINARY['api_secret']}"
+        
+        # Generate signature
+        signature = hashlib.sha1(signature_string.encode('utf-8')).hexdigest()
+        
+        logger.info(f"📝 Signature params: {params_string}")
+        logger.info(f"🔐 Generated signature: {signature}")
         
         return Response({
             "signature": signature,
             "timestamp": timestamp,
             "api_key": settings.CLOUDINARY['api_key'],
             "cloud_name": settings.CLOUDINARY['cloud_name'],
-            "folder": folder
+            "folder": folder,
+            "resource_type": resource_type  
         })
 
     
@@ -712,7 +731,77 @@ class UpdateUserProfileView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class UnifiedUploadView(APIView):
+    """Unified upload endpoint for all file types"""
+    permission_classes = [permissions.IsAuthenticated]
 
+    def post(self, request):
+        try:
+            file = request.FILES.get('file')
+            folder = request.data.get('folder', 'profiles')
+            file_type = request.data.get('file_type', 'image')  # image, resume, certificate
+            
+            if not file:
+                return Response({'error': 'No file provided'}, status=400)
+            
+            # Validate file
+            max_sizes = {
+                'image': 5 * 1024 * 1024,      # 5MB
+                'resume': 10 * 1024 * 1024,    # 10MB
+                'certificate': 5 * 1024 * 1024 # 5MB
+            }
+            
+            max_size = max_sizes.get(file_type, 5 * 1024 * 1024)
+            if file.size > max_size:
+                return Response({
+                    'error': f'File too large (max {max_size // (1024 * 1024)}MB)'
+                }, status=400)
+            
+            # Get storage backend
+            storage = StorageFactory.get_default_storage()
+            
+            # Upload file
+            result = storage.upload_file(
+                file=file,
+                folder=folder,
+                filename=file.name,
+                content_type=file.content_type,
+                make_public=True
+            )
+            
+            return Response({
+                'success': True,
+                'url': result['url'],
+                'key': result['key'],
+                'message': 'File uploaded successfully'
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+        
+class DeleteFileView(APIView):
+    """Delete file from storage"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            file_key = request.data.get('file_key')
+            if not file_key:
+                return Response({'error': 'No file key provided'}, status=400)
+            
+            storage = StorageFactory.get_default_storage()
+            success = storage.delete_file(file_key)
+            
+            if success:
+                return Response({'success': True, 'message': 'File deleted'})
+            else:
+                return Response({'error': 'Failed to delete file'}, status=500)
+                
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+        
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def debug_cookies(request):

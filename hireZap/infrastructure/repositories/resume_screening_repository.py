@@ -18,7 +18,7 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
         try:
             return ApplicationModel.objects.select_related(
                 'job',
-                'candidate__user'
+                'candidate__user',
             ).get(id=application_id)
         except ApplicationModel.DoesNotExist:
             return None
@@ -29,77 +29,157 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             screening_status = status
         )
 
-    def save_screening_results(self, application_id:int, results:Dict) -> bool:
-        """Save complete result (atomic transaction)"""
+    def save_screening_results(self, application_id: int, result: Dict) -> bool:
+        """Save screening results to database"""
         try:
-            with transaction.atomic():
-                application = ApplicationModel.objects.get(id=application_id)
-                # Update application scores
-                application.ats_overall_score = results['scores']['overall']
-                application.ats_skills_score = results['scores']['skills']
-                application.ats_experience_score = results['scores']['experience']
-                application.ats_education_score = results['scores']['education']
-                application.ats_keywords_score = results['scores']['keywords']
-                application.ats_decision = results['decision']
-                application.screening_status = 'completed'
-                
-                # Update application status based on decision
-                if results['decision'] == 'qualified':
-                    application.status = 'under_review'
-                    application.current_stage_status = 'completed'
-                else:
-                    application.status = 'rejected'
-                    application.current_stage_status = 'rejected'
-                
-                application.save()
-                
-                # Save detailed results
-                ResumeScreeningResult.objects.update_or_create(
-                    application=application,
-                    defaults={
-                        'matched_skills': results['parsed_data']['matched_skills'],
-                        'missing_required_skills': results['parsed_data']['missing_skills'],
-                        'matched_keywords': results['parsed_data']['matched_keywords'],
-                        'extracted_experience_years': results['parsed_data']['experience_years'],
-                        'experience_meets_requirement': results['scores']['experience'] >= 60,
-                        'extracted_education': results['parsed_data']['education'],
-                        'education_meets_requirement': results['scores']['education'] >= 60,
-                        'is_ats_friendly': results['ats_friendly'],
-                        'ats_issues': results['ats_issues'],
-                        'ai_summary': results['ai_analysis']['summary'],
-                        'strengths': results['ai_analysis']['strengths'],
-                        'weaknesses': results['ai_analysis']['weaknesses'],
-                        'recommendation_notes': results['ai_analysis']['notes'],
-                        'processing_time_seconds': results['processing_time'],
-                        'screened_at': timezone.now(),
-                    }
-                )
-                
-                return True
-                
+            from application.models import ApplicationModel
+            from resume_screening.models import ResumeScreeningResult
+            from django.utils import timezone
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            logger.info(f"📝 Saving screening results for application {application_id}")
+            
+            application = ApplicationModel.objects.get(id=application_id)
+            
+            # ✅ Extract data from result structure
+            scores = result.get('scores', {})
+            parsed_data = result.get('parsed_data', {})
+            ai_analysis = result.get('ai_analysis', {})
+            
+            # ✅ 1. Save scores to ApplicationModel
+            application.ats_overall_score = int(scores.get('overall', 0))
+            application.ats_skills_score = int(scores.get('skills', 0))
+            application.ats_experience_score = int(scores.get('experience', 0))
+            application.ats_education_score = int(scores.get('education', 0))
+            application.ats_keywords_score = int(scores.get('keywords', 0))
+            
+            # ✅ 2. Save decision
+            application.ats_decision = result.get('decision', 'pending')
+            
+            # ✅ 3. Update screening status
+            application.screening_status = 'completed'
+            
+            # ✅ 4. Update main status if qualified
+            if result.get('decision') == 'qualified':
+                application.status = 'qualified'
+                application.current_stage_status = 'qualified'
+            
+            application.save()
+            logger.info(f"✅ Saved scores to ApplicationModel")
+            
+            # ✅ 5. Save detailed results to ResumeScreeningResult
+            screening_result, created = ResumeScreeningResult.objects.update_or_create(
+                application=application,
+                defaults={
+                    # Extract from parsed_data
+                    'matching_skills': parsed_data.get('matched_skills', []),
+                    'missing_required_skills': parsed_data.get('missing_skills', []),
+                    'matched_keywords': parsed_data.get('matched_keywords', []),
+                    'extracted_experience_years': parsed_data.get('experience_years', 0),
+                    'extracted_education': parsed_data.get('education', ''),
+                    
+                    # ATS friendliness
+                    'is_ats_friendly': result.get('ats_friendly', True),
+                    'ats_issues': result.get('ats_issues', []),
+                    
+                    # Extract from ai_analysis
+                    'ai_summary': ai_analysis.get('summary', ''),
+                    'strengths': ai_analysis.get('strengths', []),
+                    'weaknesses': ai_analysis.get('weaknesses', []),
+                    'recommendation_notes': ai_analysis.get('notes', ''),
+                    
+                    # Metadata
+                    'processing_time_seconds': result.get('processing_time', 0),
+                    'screening_at': timezone.now(),
+                }
+            )
+            
+            action = "Created" if created else "Updated"
+            logger.info(f"✅ {action} ResumeScreeningResult: {screening_result.id}")
+            logger.info(f"   - Matched skills: {screening_result.matching_skills}")
+            logger.info(f"   - AI Summary: {screening_result.ai_summary[:100]}...")
+            
+            return True
+            
         except Exception as e:
-            print(f"Error saving screening results: {str(e)}")
+            import logging
+            import traceback
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ Failed to save screening results for application {application_id}: {e}")
+            logger.error(f"❌ Result data: {result}")
+            logger.error(traceback.format_exc())
             return False
         
     def update_job_progress(self, job_id: int):
-        """Update job screening progress count"""
-        try:
+        """Update job screening progress"""
+        try: 
             job = JobModel.objects.get(id=job_id)
-            job.screened_applications_count = ApplicationModel.objects.filter(
+            
+            # Count screened applications
+            screened_count = ApplicationModel.objects.filter(
                 job=job,
                 screening_status='completed'
             ).count()
-            job.save(update_fields=['screened_applications_count'])
-        except JobModel.DoesNotExist:
-            pass
+            
+            job.screened_applications_count = screened_count
+            
+            # Check if all completed
+            total_count = ApplicationModel.objects.filter(job=job).count()
+            percentage = (screened_count / total_count * 100) if total_count > 0 else 0
+            
+            if screened_count >= total_count and job.screening_status == 'in_progress':
+                job.screening_status = 'completed'
+                job.screening_completed_at = timezone.now()
+            
+            job.save()
+            
+            # Send WebSocket update
+            from infrastructure.services.notification_service import NotificationService
+            notification_service = NotificationService()
+            
+            progress_data = {
+                'status': job.screening_status,
+                'total_applications': total_count,
+                'screened_applications': screened_count,
+                'percentage': round(percentage, 2)
+            }
+            
+            print(f"📊 Sending progress update: {progress_data}")  # Debug log
+            
+            notification_service.send_websocket_notification(
+                user_id=job.recruiter.id,
+                notification_type='screening_progress',
+                data={
+                    'job_id': job.id,
+                    'progress': progress_data  # ✅ Match frontend structure
+                }
+            )
+            
+        except Exception as e:
+            import traceback
+            print(f"❌ Failed to update job progress: {str(e)}")
+            print(traceback.format_exc())
 
     def get_pending_applications_by_job(self, job_id: int) -> List:
         """Get all pending applications for a job"""
-        return list(ApplicationModel.objects.filter(
+        applications = ApplicationModel.objects.filter(
             job_id=job_id,
-            current_stage__slug='resume-screening',
-            screening_status='pending'
-        ).values_list('id', flat=True))
+            current_stage__slug='resume-screening'
+        ).filter(
+            Q(screening_status='pending') | 
+            Q(screening_status__isnull=True) |
+            Q(screening_status='')
+        ).exclude(
+            screening_status='completed'
+        ).values_list('id', flat=True)
+
+        # Debug logging
+        app_list = list(applications)
+        print(f"🔍 Found {len(app_list)} pending applications for job {job_id}")
+        print(f"📋 Application IDs: {app_list}")
+    
+        return app_list
     
     def mark_screening_as_failed(self, application_id: int, error: str, retry_count: int):
         """Mark application screening as failed"""
@@ -150,11 +230,20 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
     
     def get_pending_applications_count(self, job_id: int) -> int:
         """Get count of pending applications"""
-        return ApplicationModel.objects.filter(
+        count = ApplicationModel.objects.filter(
             job_id=job_id,
-            current_stage__slug='resume-screening',
-            screening_status='pending'
+            current_stage__slug='resume-screening'
+        ).filter(
+            Q(screening_status='pending') | 
+            Q(screening_status__isnull=True) |
+            Q(screening_status='')
+        ).exclude(
+            screening_status='completed'
         ).count()
+        
+        print(f"🔍 Pending applications count for job {job_id}: {count}")
+        
+        return count
     
     def get_screening_results(self, job_id: int, filters: Optional[Dict] = None) -> List[Dict]:
         """Get screening results for a job with filters"""
@@ -304,3 +393,28 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
                 'success': False,
                 'error': str(e)
             }
+        
+
+    def reset_job_screening(self, job_id: int):
+        JobModel.objects.filter(id=job_id).update(
+            screening_status='not_started',
+            screened_applications_count=0,
+            screening_started_at=None,
+            screening_completed_at=None
+        )
+
+    def reset_applications_for_job(self, job_id: int):
+        ApplicationModel.objects.filter(job_id=job_id).update(
+            screening_status='pending',
+            ats_overall_score=None,
+            ats_skills_score=None,
+            ats_experience_score=None,
+            ats_education_score=None,
+            ats_keywords_score=None,
+            ats_decision='pending'
+        )
+
+    def delete_screening_results(self, job_id: int):
+        ResumeScreeningResult.objects.filter(
+            application__job_id=job_id
+        ).delete()

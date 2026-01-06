@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 @dataclass
@@ -36,6 +36,14 @@ class Application:
     company_name: Optional[str] = None
     company_logo: Optional[str] = None
 
+    screening_status: str = 'pending',
+    screening_decision: str = 'pending',
+    screening_scores: Optional[Dict[str, int]] = None,
+    screening_details: Optional[Dict[str, Any]] = None,
+    screened_at: Optional[datetime] = None,
+    current_stage_id: Optional[int] = None,
+    current_stage_status: str = 'pending',
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -65,6 +73,13 @@ class Application:
             'job_title':self.job_title,
             'company_name':self.company_name,
             'company_logo':self.company_logo,
+            'screening_status': self.screening_status,
+            'screening_decision': self.screening_decision,
+            'screening_scores': self.screening_scores,
+            'screening_details': self.screening_details,
+            'screened_at': self.screened_at.isoformat() if self.screened_at else None,
+            'current_stage_id': self.current_stage_id,
+            'current_stage_status': self.current_stage_status,
             
         }
 

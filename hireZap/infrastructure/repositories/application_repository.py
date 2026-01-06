@@ -1,8 +1,10 @@
 from core.entities.application import Application
 from core.interface.application_repository_port import ApplicationRepositoryPort
 from typing import Optional, List
-from application.models import ApplicationModel
+from application.models import ApplicationModel, ApplicationStageHistory
+from selection_process.models import SelectionProcessModel
 from django.utils import timezone
+import logging
 
 class ApplicationRepository(ApplicationRepositoryPort):
     
@@ -10,7 +12,26 @@ class ApplicationRepository(ApplicationRepositoryPort):
         """Convert Django model to entity"""
         job = getattr(app_model, 'job', None)
         candidate = getattr(app_model, 'candidate', None)
-
+        screening_details = None
+        screened_at = None
+        try:
+            if hasattr(app_model, 'screening_result'):
+                result = app_model.screening_result
+                screening_details = {
+                    'matched_skills': result.matching_skills or [],
+                    'missing_skills': result.missing_required_skills or [],
+                    'matched_keywords': result.matched_keywords or [],
+                    'experience_years': result.extracted_experience_years or 0,
+                    'education': result.extracted_education or '',
+                    'is_ats_friendly': result.is_ats_friendly,
+                    'ats_issues': result.ats_issues or [],
+                    'ai_summary': result.ai_summary or '',
+                    'strengths': result.strengths or [],
+                    'weaknesses': result.weaknesses or [],
+                }
+                screened_at = result.screening_at
+        except Exception as e:
+            logging.getLogger(__name__).debug(f"No screening result for application {app_model.id}: {e}")
         return Application(
             id=app_model.id,
             job_id=app_model.job_id,
@@ -39,11 +60,29 @@ class ApplicationRepository(ApplicationRepositoryPort):
             job_title=job.job_title if job else None,
             company_name=job.company.company_name if job and hasattr(job, 'company') else None,
             company_logo=app_model.job.company.logo_url if app_model.job.company else None,
+            screening_status=app_model.screening_status,
+            screening_decision=app_model.ats_decision or 'pending',
+            screening_scores={
+                'overall': app_model.ats_overall_score or 0,
+                'skills': app_model.ats_skills_score or 0,
+                'experience': app_model.ats_experience_score or 0,
+                'education': app_model.ats_education_score or 0,
+                'keywords': app_model.ats_keywords_score or 0,
+            },
+            screening_details=screening_details,
+            screened_at=screened_at,
+            current_stage_id=app_model.current_stage_id,
+            current_stage_status=app_model.current_stage_status,
         )
     
     def create_application(self, application:Application) -> Optional[Application]:
         """Create a new job application"""
         try:
+            first_stage_process = SelectionProcessModel.objects.filter(
+                job_id=application.job_id,
+                is_active=True
+            ).order_by('order').first()
+
             app_model = ApplicationModel.objects.create(
                 job_id=application.job_id,
                 candidate_id=application.candidate_id,
@@ -63,7 +102,18 @@ class ApplicationRepository(ApplicationRepositoryPort):
                 status=application.status,
                 is_draft=application.is_draft,
                 submitted_at=timezone.now() if not application.is_draft else None,
+                current_stage=first_stage_process.stage if first_stage_process else None,
+                current_stage_status='pending',
+                screening_status='pending',
             )
+            if first_stage_process and not application.is_draft:
+                ApplicationStageHistory.objects.create(
+                    application=app_model,
+                    stage=first_stage_process.stage,
+                    status='started',
+                    started_at=timezone.now()
+                )
+            
             return self._model_to_entity(app_model)
         except Exception as e:
             return None
@@ -113,24 +163,46 @@ class ApplicationRepository(ApplicationRepositoryPort):
     def get_applications_by_job(self, job_id: int) -> List[Application]:
         """Get all applications for a job"""
         try:
+            # ✅ ADD select_related to load screening_result
             app_models = ApplicationModel.objects.filter(
                 job_id=job_id,
                 is_draft=False
-            ).select_related('candidate')
+            ).select_related(
+                'candidate',
+                'candidate__user',
+                'job',
+                'job__company',
+                'screening_result',  # ✅ CRITICAL: Load screening details
+                'current_stage'
+            ).order_by('-created_at')
+            
             return [self._model_to_entity(app) for app in app_models]
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error fetching applications: {e}")
             return []
 
     def get_applications_by_status(self, job_id: int, status: str) -> List[Application]:
         """Get applications by status for a specific job"""
         try:
+            # ✅ ADD select_related here too
             app_models = ApplicationModel.objects.filter(
                 job_id=job_id,
                 status=status,
                 is_draft=False
-            ).select_related('candidate')
+            ).select_related(
+                'candidate',
+                'candidate__user',
+                'job',
+                'job__company',
+                'screening_result',  # ✅ CRITICAL: Load screening details
+                'current_stage'
+            ).order_by('-created_at')
+            
             return [self._model_to_entity(app) for app in app_models]
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error fetching applications by status: {e}")
             return []
 
     def update_application(self, application_id: int, application_data: dict) -> Optional[Application]:

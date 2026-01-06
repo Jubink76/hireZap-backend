@@ -17,7 +17,9 @@ from . views import(CsrfCookieView,
                     UpdateUserProfileView,
                     debug_cookies,
                     LinkedInAuthView,
-                    CookieTokenRefreshView)
+                    CookieTokenRefreshView,
+                    UnifiedUploadView,
+                    DeleteFileView)
 urlpatterns = [
     path('me/', FetchUserView.as_view(), name='auth_me'),
     path('csrf-cookie/',CsrfCookieView.as_view(),name='csrf-cookie'),
@@ -38,6 +40,8 @@ urlpatterns = [
     path('linkedin/',LinkedInAuthView.as_view(), name="social_linkedin"),
     path('cloudinary/get-signature/', CloudinarySignatureApiView.as_view(), name='cloudinary-signature'),
     path("user/update-profile/", UpdateUserProfileView.as_view(), name="update-profile"),
+    path("file/upload/", UnifiedUploadView.as_view(), name='unified-upload'),
+    path("delete-file/",DeleteFileView.as_view(), name="delete-file"),
     path('debug-cookies/', debug_cookies, name='debug-cookies'),
 
 ]

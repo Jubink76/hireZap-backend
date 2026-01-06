@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from application.serializers import (
-    ApplicationSerializer,
+    ApplicationCreateSerializer,
     UpdateApplicationStatusSerializer
 )
 
@@ -38,7 +38,7 @@ class CreateApplicationView(APIView):
     def post(self,request):
         """ create or save draft application """
         try:
-            serializer = ApplicationSerializer(data= request.data)
+            serializer = ApplicationCreateSerializer(data= request.data)
             if not serializer.is_valid():
                 return Response(
                     {
@@ -114,6 +114,7 @@ class JobApplicationView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             status_filter = request.query_params.get('status',None)
+            print("status filter", status_filter)
             result = get_application_by_job_usecase.execute(job_id,status_filter)
             if not result['success']:
                 return Response({

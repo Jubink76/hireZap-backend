@@ -28,6 +28,11 @@ class ResumeScreeningRepositoryPort(ABC):
         raise NotImplementedError
     
     @abstractmethod
+    def get_pending_applications_count(self,job_id:int):
+        """Get pending applications count"""
+        raise NotImplementedError
+    
+    @abstractmethod
     def mark_screening_as_failed(self, application_id:int, error:str, retry_count:int):
         """Mark application screening as failed"""
         raise NotImplementedError
@@ -56,4 +61,16 @@ class ResumeScreeningRepositoryPort(ABC):
     def get_job_by_id(self,job_id:int):
         """Get job by id"""
         raise NotImplementedError
+    
+    @abstractmethod
+    def reset_job_screening(self, job_id: int):
+        pass
+
+    @abstractmethod
+    def reset_applications_for_job(self, job_id: int):
+        pass
+
+    @abstractmethod
+    def delete_screening_results(self, job_id: int):
+        pass
     

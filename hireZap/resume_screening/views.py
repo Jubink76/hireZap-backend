@@ -11,7 +11,7 @@ from core.use_cases.resume_screening.bulk_screening_usecase import StartBulkScre
 from core.use_cases.resume_screening.get_screening_progress_usecase import GetScreeningProgressUseCase
 from core.use_cases.resume_screening.get_screening_results_usecase import GetScreeningResultsUseCase
 from core.use_cases.resume_screening.move_to_next_stage_usecase import MoveToNextStageUseCase
-
+from core.use_cases.resume_screening.reset_screening_usecase import ResetScreeningUseCase
 from infrastructure.repositories.ats_configuration_repository import ATSConfigRepository
 from infrastructure.repositories.resume_screening_repository import ResumeScreeningRepository
 from infrastructure.services.notification_service import NotificationService
@@ -145,3 +145,19 @@ class PauseScreeningView(APIView):
                 {'success': False, 'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+class ResetScreeningView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, job_id):
+        """Reset screening status for a job"""
+        usecase = ResetScreeningUseCase(
+            screening_repo=ResumeScreeningRepository()
+        )
+
+        result = usecase.execute(job_id)
+
+        if result['success']:
+            return Response(result, status=status.HTTP_200_OK)
+
+        return Response(result, status=status.HTTP_404_NOT_FOUND)
