@@ -18,6 +18,8 @@ class ATSScorer:
         )-> Dict:
         """Calculate comprehensive score"""
 
+        passing_score = ats_config.get('passing_score', 60)
+
         #skill score
         skills_score = self._calculate_skills_score(
             parsed_data['matched_skills'],
@@ -26,7 +28,7 @@ class ATSScorer:
         )
 
         #experience score
-        experience_score = self._experiece_score(
+        experience_score = self._calculate_experience_score(
             parsed_data['experience_years'],
             ats_config['minimum_experience_years']
         )
@@ -61,15 +63,25 @@ class ATSScorer:
         # 7. Make decision
         decision = 'qualified' if overall_score >= ats_config['passing_score'] else 'rejected'
         
-        # Auto-rejection rules
-        if ats_config.get('auto_reject_missing_skills') and len(parsed_data['missing_skills']) > 0:
-            decision = 'rejected'
+        # Auto-rejection checks
+        if ats_config.get('auto_rejection_missing_skills', False):
+            if len(parsed_data['missing_skills']) > 0:
+                decision = 'rejected'
+                overall_score = min(overall_score, 40)  # Cap at 40 if missing required skills
         
-        if ats_config.get('auto_reject_below_experience') and parsed_data['experience_years'] < ats_config['minimum_experience_years']:
-            decision = 'rejected'
+        if ats_config.get('auto_reject_below_experience', False):
+            min_exp = ats_config.get('minimum_experience_years', 0)
+            if parsed_data['experience_years'] < min_exp:
+                decision = 'rejected'
+                overall_score = min(overall_score, 45)  # Cap at 45 if below experience
+        
+        # Final decision if no auto-rejection
+        if 'decision' not in locals():
+            decision = 'qualified' if overall_score >= passing_score else 'rejected'
         
         return {
             'overall_score': int(overall_score),
+            'decision': decision,
             'skills_score': skills_score,
             'experience_score': experience_score,
             'education_score': education_score,

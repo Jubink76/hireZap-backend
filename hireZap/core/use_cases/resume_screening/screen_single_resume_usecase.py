@@ -89,7 +89,7 @@ class ScreenResumeUseCase:
                 'minimum_experience_years': ats_config.minimum_experience_years,
                 'required_education': ats_config.required_education,
                 'important_keywords': ats_config.important_keywords,
-                'auto_reject_missing_skills': ats_config.auto_reject_missing_skills,
+                'auto_rejection_missing_skills': ats_config.auto_rejection_missing_skills,
                 'auto_reject_below_experience': ats_config.auto_reject_below_experience,
             }
         else:
@@ -105,7 +105,7 @@ class ScreenResumeUseCase:
                 'minimum_experience_years': 0,
                 'required_education': None,
                 'important_keywords': [],
-                'auto_reject_missing_skills': False,
+                'auto_rejection_missing_skills': False,
                 'auto_reject_below_experience': False,
             }
     

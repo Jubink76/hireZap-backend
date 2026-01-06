@@ -57,10 +57,10 @@ class JobModel(models.Model):
         default='not_started'
     )
 
-    total_application_count = models.IntegerField(default=0)
-    screened_application_count = models.IntegerField(default=0)
+    total_applications_count = models.IntegerField(default=0)
+    screened_applications_count = models.IntegerField(default=0)
 
-    screenig_started_at = models.DateTimeField(null=True, blank=True)
+    screening_started_at = models.DateTimeField(null=True, blank=True)
     screening_completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

@@ -59,7 +59,7 @@ class ResumeParser:
         ]
         text_lower = text.lower()
         for level in education_levels:
-            if level in text.lower:
+            if level in text_lower:
                 return level.title()
             
         return "Not specified"

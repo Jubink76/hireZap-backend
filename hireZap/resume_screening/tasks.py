@@ -16,6 +16,10 @@ def screen_single_resume(self, application_id: int):
     Screen a single resume (THIN - delegates to use case)
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"🔍 Starting screening for application {application_id}")
         # Initialize dependencies
         screening_repo = ResumeScreeningRepository()
         ats_repo = ATSConfigRepository()
@@ -25,9 +29,18 @@ def screen_single_resume(self, application_id: int):
         use_case = ScreenResumeUseCase(screening_repo, ats_repo, notification_service)
         result = use_case.execute(application_id)
         
+        if result['success']:
+            logger.info(f"✅ Screening completed for application {application_id}: {result['decision']}")
+        else:
+            logger.error(f"❌ Screening failed for application {application_id}: {result.get('error')}")
         return result
         
     except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Exception screening application {application_id}: {str(e)}")
+        logger.error(traceback.format_exc())
         # Mark as failed
         screening_repo = ResumeScreeningRepository()
         screening_repo.mark_screening_as_failed(
@@ -46,12 +59,16 @@ def start_bulk_screening(job_id: int):
     Start bulk screening (THIN - delegates to repository)
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
         screening_repo = ResumeScreeningRepository()
         notification_service = NotificationService()
         
         # Get job
         job = screening_repo.get_job_by_id(job_id)
         if not job:
+            logger.error(f"❌ Job {job_id} not found")
             return {
                 'success': False,
                 'error': f'Job {job_id} not found'
@@ -60,6 +77,7 @@ def start_bulk_screening(job_id: int):
         # Get pending applications
         application_ids = screening_repo.get_pending_applications_by_job(job_id)
         
+        logger.info(f"📊 Found {len(application_ids)} pending applications")
         if not application_ids:
             return {
                 'success': False,
@@ -73,13 +91,13 @@ def start_bulk_screening(job_id: int):
             total_applications_count=len(application_ids),
             screened_applications_count=0
         )
-        
+        logger.info(f"✅ Job status updated to 'in_progress'")
         # Dispatch individual tasks
         task_ids = []
         for app_id in application_ids:
             task = screen_single_resume.delay(app_id)
             task_ids.append(task.id)
-        
+        logger.info(f"✅ Dispatched {len(task_ids)} screening tasks")
         # Send notification
         notification_service.send_websocket_notification(
             user_id=job.recruiter.id,
@@ -99,6 +117,11 @@ def start_bulk_screening(job_id: int):
         }
         
     except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Bulk screening failed: {str(e)}")
+        logger.error(traceback.format_exc())
         return {
             'success': False,
             'error': str(e)
@@ -156,6 +179,13 @@ def send_screening_result_email_task(
             'job__company',
             'screening_result'
         ).get(id=application_id)
+
+        candidate_name = f"{application.first_name} {application.last_name}".strip()
+        if not candidate_name:
+            # Fallback to user name
+            candidate_name = f"{application.candidate.user.first_name} {application.candidate.user.last_name}".strip()
+        if not candidate_name:
+            candidate_name = "Candidate"
         
         # Get AI summary
         summary = ""
@@ -168,7 +198,7 @@ def send_screening_result_email_task(
         if decision == 'qualified':
             subject = f"Good News! Resume Screening Passed - {application.job.job_title}"
             body = f"""
-Dear {application.candidate.get_full_name()},
+Dear {candidate_name},
 
 Congratulations! Your resume has been successfully screened for {application.job.job_title} at {application.job.company.company_name}.
 
@@ -184,7 +214,7 @@ Best regards,
         else:
             subject = f"Application Update - {application.job.job_title}"
             body = f"""
-Dear {application.candidate.get_full_name()},
+Dear {candidate_name},
 
 Thank you for applying. After review, we will not be moving forward at this time.
 
@@ -218,10 +248,17 @@ def send_stage_progress_email_task(
             'candidate__user',
             'job__company'
         ).get(id=application_id)
+
+        candidate_name = f"{application.first_name} {application.last_name}".strip()
+        if not candidate_name:
+            # Fallback to user name
+            candidate_name = f"{application.candidate.user.first_name} {application.candidate.user.last_name}".strip()
+        if not candidate_name:
+            candidate_name = "Candidate"
         
         subject = f"🎉 Moving to {next_stage} - {application.job.job_title}"
         body = f"""
-Dear {application.candidate.get_full_name()},
+Dear {candidate_name},
 
 Congratulations! You've completed {current_stage} and are moving to {next_stage}.
 

@@ -66,3 +66,17 @@ class User(AbstractBaseUser,PermissionsMixin):
     def __str__(self):
         return f"{self.email} ({self.role})"
 
+    @property
+    def is_recruiter(self):
+        """Check if user is a recruiter"""
+        return self.role == Roles.RECRUITER
+    
+    @property
+    def is_candidate(self):
+        """Check if user is a candidate"""
+        return self.role == Roles.CANDIDATE
+    
+    @property
+    def is_admin_user(self):
+        """Check if user is an admin"""
+        return self.role == Roles.ADMIN or self.is_admin
