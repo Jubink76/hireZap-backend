@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'selection_process',
     'subscription',
     'resume_screening',
+    'telephonic_round',
 
 ]
 
@@ -318,6 +319,10 @@ CLOUDINARY = {
 }
 
 GEMINI_API_KEY = env('GEMINI_API_KEY')
+
+# Whisper Configuration
+WHISPER_MODEL_SIZE = 'base'
+WHISPER_DEVICE = 'cpu'
 
 #cache configuration
 #REDIS_DB_CACHE = int(env('REDIS_DB_CACHE'))

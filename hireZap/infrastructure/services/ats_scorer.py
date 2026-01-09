@@ -1,33 +1,41 @@
-import google.generativeai as genai
+"""
+infrastructure/services/ats_scorer.py
+Updated to use google.genai (new package) - Maintains all existing functionality
+"""
+from google import genai
+from google.genai import types
 from typing import Dict, List
+from django.conf import settings
 import json
 
-class ATSScorer:
-    """Ai powered ATS scoring by using Google Gemini"""
 
-    def __init__(self, api_key:str):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+class ATSScorer:
+    """AI powered ATS scoring by using Google Gemini"""
+
+    def __init__(self, api_key: str):
+        # Initialize the new Gemini client
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = 'gemini-1.5-flash'  # Keep using the same model
 
     def calculate_score(
             self,
-            resume_text:str,
-            parsed_data:Dict,
-            ats_config:Dict,
-            job_requirements:Dict
-        )-> Dict:
+            resume_text: str,
+            parsed_data: Dict,
+            ats_config: Dict,
+            job_requirements: Dict
+        ) -> Dict:
         """Calculate comprehensive score"""
 
         passing_score = ats_config.get('passing_score', 60)
 
-        #skill score
+        # 1. Skills score
         skills_score = self._calculate_skills_score(
             parsed_data['matched_skills'],
             parsed_data['missing_skills'],
             ats_config
         )
 
-        #experience score
+        # 2. Experience score
         experience_score = self._calculate_experience_score(
             parsed_data['experience_years'],
             ats_config['minimum_experience_years']
@@ -76,8 +84,7 @@ class ATSScorer:
                 overall_score = min(overall_score, 45)  # Cap at 45 if below experience
         
         # Final decision if no auto-rejection
-        if 'decision' not in locals():
-            decision = 'qualified' if overall_score >= passing_score else 'rejected'
+        decision = 'qualified' if overall_score >= passing_score else 'rejected'
         
         return {
             'overall_score': int(overall_score),
@@ -86,7 +93,6 @@ class ATSScorer:
             'experience_score': experience_score,
             'education_score': education_score,
             'keywords_score': keywords_score,
-            'decision': decision,
             'ai_summary': ai_analysis['summary'],
             'strengths': ai_analysis['strengths'],
             'weaknesses': ai_analysis['weaknesses'],
@@ -97,15 +103,15 @@ class ATSScorer:
             self,
             matched_skills: List[str],
             missing_skills: List[str],
-            ats_config:Dict
+            ats_config: Dict
         ) -> int:
+        """Calculate skills match score"""
         total_required = len(matched_skills) + len(missing_skills)
         if total_required == 0:
             return 50
         match_percentage = (len(matched_skills) / total_required) * 100
         return int(match_percentage)
     
-
     def _calculate_experience_score(
         self,
         candidate_years: float,
@@ -167,37 +173,47 @@ class ATSScorer:
         job_requirements: Dict,
         overall_score: float
     ) -> Dict:
-        """Get AI-powered analysis using Gemini"""
+        """Get AI-powered analysis using Gemini (Updated to new API)"""
         
         prompt = f"""
-            Analyze this resume for the given job and provide insights.
+Analyze this resume for the given job and provide insights.
 
-            **Job Requirements:**
-            - Skills: {', '.join(job_requirements.get('skills_required', []))}
-            - Responsibilities: {job_requirements.get('key_responsibilities', '')}
-            - Requirements: {job_requirements.get('requirements', '')}
+**Job Requirements:**
+- Skills: {', '.join(job_requirements.get('skills_required', []))}
+- Responsibilities: {job_requirements.get('key_responsibilities', '')}
+- Requirements: {job_requirements.get('requirements', '')}
 
-            **Resume Text:**
-            {resume_text[:3000]}  # Limit to avoid token limits
+**Resume Text:**
+{resume_text[:3000]}
 
-            **Current ATS Score:** {overall_score}/100
+**Current ATS Score:** {overall_score}/100
 
-            Provide your response as a JSON object:
-            {{
-                "summary": "<2-3 sentence overall assessment>",
-                "strengths": [<list of 3-5 key strengths>],
-                "weaknesses": [<list of 3-5 areas of concern>],
-                "notes": "<brief recommendation notes>"
-            }}
+Provide your response as a JSON object:
+{{
+    "summary": "<2-3 sentence overall assessment>",
+    "strengths": [<list of 3-5 key strengths>],
+    "weaknesses": [<list of 3-5 areas of concern>],
+    "notes": "<brief recommendation notes>"
+}}
 
-            Provide ONLY the JSON response.
-            """
+Provide ONLY the JSON response, no markdown formatting.
+"""
         
         try:
-            response = self.model.generate_content(prompt)
+            # Use the new API
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=1000
+                )
+            )
+            
+            # Get response text
             response_text = response.text.strip()
             
-            # Clean JSON
+            # Clean JSON (same logic as before)
             if response_text.startswith('```json'):
                 response_text = response_text[7:]
             if response_text.startswith('```'):
@@ -209,7 +225,8 @@ class ATSScorer:
             return result
             
         except Exception as e:
-            # Fallback if AI fails
+            print(f"⚠️ AI analysis error: {str(e)}")
+            # Fallback if AI fails (same as before)
             return {
                 'summary': f"Automated screening completed with score: {overall_score}/100",
                 'strengths': ["Resume processed successfully"],

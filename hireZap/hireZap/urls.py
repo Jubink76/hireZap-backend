@@ -28,5 +28,6 @@ urlpatterns = [
     path('api/selection-process/', include('selection_process.urls')),
     path('api/subscription/',include('subscription.urls')),
     path('api/resume-screening/',include('resume_screening.urls')),
+    path('api/telephonic-round/',include('telephonic_round.urls')),
     
 ]
