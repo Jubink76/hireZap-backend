@@ -49,7 +49,7 @@ class TelephonicRoundRepositoryPort(ABC):
         return NotImplementedError
     
     @abstractmethod
-    def get_completd_interviews(self,job_id:int):
+    def get_completed_interviews(self,job_id:int):
         """Get completed interviews"""
 
     @abstractmethod
@@ -146,7 +146,7 @@ class TelephonicRoundRepositoryPort(ABC):
         return NotImplementedError
     
     @abstractmethod
-    def move_to_next_stage(self,
+    def move_interviews_to_next_stage(self,
                            interview_ids:List[int],
                            feedback:str=''):
         """Move qualified candidate to next stage"""

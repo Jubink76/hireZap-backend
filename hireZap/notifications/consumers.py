@@ -105,6 +105,57 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'total_screened': event['total_screened']
         }))
 
+    async def interview_scheduled(self, event):
+        """
+        Handle interview_scheduled message
+        Sends notification to candidate when interview is scheduled
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'interview_scheduled',
+            'message': 'Interview has been scheduled',
+            'data': event.get('data', {})
+        }))
+    
+    async def interview_rescheduled(self, event):
+        """
+        Handle interview_rescheduled message
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'interview_rescheduled',
+            'message': 'Interview has been rescheduled',
+            'data': event.get('data', {})
+        }))
+    
+    async def interview_cancelled(self, event):
+        """
+        Handle interview_cancelled message
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'interview_cancelled',
+            'message': 'Interview has been cancelled',
+            'data': event.get('data', {})
+        }))
+    
+    async def interview_started(self, event):
+        """
+        Handle interview_started message
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'interview_started',
+            'message': 'Interview has started',
+            'data': event.get('data', {})
+        }))
+    
+    async def interview_completed(self, event):
+        """
+        Handle interview_completed message
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'interview_completed',
+            'message': 'Interview has been completed',
+            'data': event.get('data', {})
+        }))
+
 
 class CompanyConsumer(AsyncWebsocketConsumer):
     async def connect(self):

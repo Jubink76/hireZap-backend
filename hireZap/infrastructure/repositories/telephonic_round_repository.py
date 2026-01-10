@@ -11,6 +11,7 @@ from telephonic_round.models import(
 )
 from application.models import ApplicationModel
 from job.models import JobModel
+from selection_process.models import SelectionProcessModel
 from django.utils import timezone
 
 class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
@@ -81,22 +82,44 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         
         return list(queryset.order_by('scheduled_at'))
     
-    def candidate_for_telephonic_round(self, job_id:int, stage_id:Optional[int]=None) -> List[ApplicationModel]:
-        queryset = ApplicationModel.objects.select_related(
-            'candidate',
-            'candidate__user',
-            'current_stage',
-            'job'
-        ).filter(
-            job_id=job_id,
-            current_stage_status='qualified'
-        )
+    def get_candidates_for_telephonic_round(self, job_id:int, stage_id:Optional[int]=None) -> List[ApplicationModel]:
+        try:
+            # Find telephonic round stage
+            telephonic_stage_process = SelectionProcessModel.objects.filter(
+                job_id=job_id,
+                stage__slug='telephonic-round',  # or stage__name__icontains='telephonic'
+                is_active=True
+            ).first()
+            
+            if not telephonic_stage_process:
+                return []
+            
+            telephonic_stage = telephonic_stage_process.stage
+            
+            # Get candidates currently in telephonic round stage
+            queryset = ApplicationModel.objects.select_related(
+                'candidate',
+                'candidate__user',
+                'current_stage',
+                'job'
+            ).filter(
+                job_id=job_id,
+                current_stage=telephonic_stage,  # ✅ CRITICAL: Filter by current stage
+                # Include both pending and qualified candidates in this stage
+                current_stage_status__in=['pending', 'qualified']
+            )
 
-        if stage_id:
-            queryset = queryset.filter(current_stage_id=stage_id)
+            if stage_id:
+                queryset = queryset.filter(current_stage_id=stage_id)
 
-        return list(queryset)
-    
+            result = list(queryset)
+            return result
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return []
+        
 
     def get_unscheduled_interviews(self, job_id:int) -> List[ApplicationModel]:
 

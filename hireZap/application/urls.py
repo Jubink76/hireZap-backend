@@ -7,7 +7,8 @@ from application.views import(
     UpdateApplicationStatusView,
     WithdrawApplicationView,
     GetApplicationStatisticsView,
-    CheckApplicationExistView
+    CheckApplicationExistView,
+    ApplicationStageProgressAPIView
 )
 urlpatterns = [
     path('apply/',CreateApplicationView.as_view(),name='create-application'),
@@ -18,5 +19,6 @@ urlpatterns = [
     path('withdraw/<int:application_id>/',WithdrawApplicationView.as_view(),name='withdraw-application'),
     path('check/<int:job_id>/',CheckApplicationExistView.as_view(),name='check-application'),
     path('job/<int:job_id>/statistics/',GetApplicationStatisticsView.as_view(),name='application-statistics'),
+    path('<int:application_id>/stage-progress/',ApplicationStageProgressAPIView.as_view(), name='application-stage-progres'),
     
 ]
