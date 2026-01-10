@@ -74,7 +74,7 @@ class ScheduleInterviewUsecase:
     
     def _send_websocket_notification(self, interview):
         """Send WebSocket notification to candidate"""
-        self.notfication_service.send_websocket_notification(
+        self.notification_service.send_websocket_notification(
             user_id=interview.application.candidate_id,
             notification_type='interview_scheduled',
             data={

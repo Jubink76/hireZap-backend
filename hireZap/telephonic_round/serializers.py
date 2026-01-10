@@ -34,21 +34,34 @@ class TelephonicRoundSettingsSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id','job', 'created_at', 'updated_at']
     
     def validate(self, data):
         """Validate that weights sum to 100"""
-        total_weight = (
-            data.get('communication_weight', 0) +
-            data.get('technical_knowledge_weight', 0) +
-            data.get('problem_solving_weight', 0) +
-            data.get('enthusiasm_weight', 0) +
-            data.get('clarity_weight', 0) +
-            data.get('professionalism_weight', 0)
-        )
+        # For updates, get current values from instance
+        if self.instance:
+            total_weight = (
+                data.get('communication_weight', self.instance.communication_weight) +
+                data.get('technical_knowledge_weight', self.instance.technical_knowledge_weight) +
+                data.get('problem_solving_weight', self.instance.problem_solving_weight) +
+                data.get('enthusiasm_weight', self.instance.enthusiasm_weight) +
+                data.get('clarity_weight', self.instance.clarity_weight) +
+                data.get('professionalism_weight', self.instance.professionalism_weight)
+            )
+        else:
+            # For creation, all weights must be provided
+            total_weight = (
+                data.get('communication_weight', 0) +
+                data.get('technical_knowledge_weight', 0) +
+                data.get('problem_solving_weight', 0) +
+                data.get('enthusiasm_weight', 0) +
+                data.get('clarity_weight', 0) +
+                data.get('professionalism_weight', 0)
+            )
+        
         if total_weight != 100:
             raise serializers.ValidationError(
-                "Weights must sum to 100%"
+                f"Weights must sum to 100%. Current sum: {total_weight}"
             )
         return data
 
@@ -58,7 +71,7 @@ class ScheduleInterviewSerializer(serializers.Serializer):
     candidate_id = serializers.IntegerField(required=True)
     scheduled_at = serializers.DateTimeField(required=True)
     duration = serializers.IntegerField(required=False, default=30)
-    timezone = serializers.CharField(required=False, default='America/New_York')
+    timezone = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
     send_notification = serializers.BooleanField(default=True)
     send_email = serializers.BooleanField(default=True)

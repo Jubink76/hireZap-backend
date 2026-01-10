@@ -126,3 +126,40 @@ class ApplicationSerializer(serializers.ModelSerializer):
             return obj.updated_at.isoformat()
         
         return None
+    
+class StageProgressSerializer(serializers.Serializer):
+    """Serializer for individual stage progress"""
+    stage_id = serializers.IntegerField()
+    stage_name = serializers.CharField()
+    stage_slug = serializers.CharField()
+    stage_icon = serializers.CharField()
+    status = serializers.CharField()
+    result = serializers.CharField(allow_null=True)
+    score = serializers.IntegerField(allow_null=True)
+    feedback = serializers.CharField(allow_null=True)
+    started_at = serializers.DateTimeField(allow_null=True)
+    completed_at = serializers.DateTimeField(allow_null=True)
+    scheduled_at = serializers.DateTimeField(allow_null=True)
+    interview_id = serializers.IntegerField(allow_null=True)
+
+class ProgressSerializer(serializers.Serializer):
+    """Serializer for overall progress"""
+    completed = serializers.IntegerField()
+    total = serializers.IntegerField()
+    percentage = serializers.IntegerField()
+
+class ApplicationProgressSerializer(serializers.Serializer):
+    """Serializer for complete application progress"""
+    success = serializers.BooleanField()
+    application_id = serializers.IntegerField(required=False)
+    job_id = serializers.IntegerField(required=False)
+    job_title = serializers.CharField(allow_null=True, required=False)
+    company_name = serializers.CharField(allow_null=True, required=False)
+    company_logo = serializers.CharField(allow_null=True, required=False)
+    current_stage = serializers.CharField(allow_null=True, required=False)
+    current_stage_status = serializers.CharField(allow_null=True, required=False)
+    applied_at = serializers.DateTimeField(required=False)
+    progress = ProgressSerializer(required=False)
+    stages = StageProgressSerializer(many=True, required=False)
+    warning = serializers.CharField(required=False)
+    error = serializers.CharField(required=False)

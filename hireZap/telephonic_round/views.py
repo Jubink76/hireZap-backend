@@ -66,19 +66,38 @@ class UpdateTelephonicSettingsAPIView(APIView):
     
     def put(self, request, job_id):
         try:
-            # Validate input
-            serializer = TelephonicRoundSettingsSerializer(data=request.data)
+            # Get existing settings to use for partial validation
+            repository = TelephonicRoundRepository()
+            try:
+                existing_settings = repository.get_settings_by_job(job_id)
+                is_update = True
+            except:
+                existing_settings = None
+                is_update = False
+            
+            # If updating, use the instance for validation
+            if is_update:
+                serializer = TelephonicRoundSettingsSerializer(
+                    existing_settings,
+                    data=request.data,
+                    partial=True  # This is key!
+                )
+            else:
+                # For new settings, add job_id
+                data = request.data.copy()
+                data['job'] = job_id
+                serializer = TelephonicRoundSettingsSerializer(data=data)
+            
             if not serializer.is_valid():
                 return Response({
                     'success': False,
                     'errors': serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Initialize dependencies
-            repository = TelephonicRoundRepository()
-            # Execute use case
+            # Execute use case with validated data
             use_case = UpdateSettingsUseCase(repository)
             result = use_case.execute(job_id, serializer.validated_data)
+
             
             if result['success']:
                 return Response(result)

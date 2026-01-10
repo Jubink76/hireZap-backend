@@ -5,10 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 
 from application.serializers import (
     ApplicationCreateSerializer,
-    UpdateApplicationStatusSerializer
+    UpdateApplicationStatusSerializer,
+    ApplicationProgressSerializer
 )
 
 from infrastructure.repositories.application_repository import ApplicationRepository
+from infrastructure.repositories.application_progress_repository import ApplicationProgressRepository
 
 from core.use_cases.application.create_application_usecase import CreateApplicationUsecase
 from core.use_cases.application.get_application_usecase import GetApplicationByIdUsecase
@@ -18,6 +20,7 @@ from core.use_cases.application.update_application_status_usecase import UpdateA
 from core.use_cases.application.withdraw_application_usecase import WithdrawApplicationUsecase
 from core.use_cases.application.check_application_exist_usecase import CheckApplicationExistsUseCase
 from core.use_cases.application.get_application_statics_usecase import GetApplicationStatisticsUsecase
+from core.use_cases.application_progress.get_application_progress_usecase import GetApplicationProgressUseCase
 
 app_repo = ApplicationRepository()
 create_application_usecase = CreateApplicationUsecase(app_repo)
@@ -220,7 +223,45 @@ class GetApplicationStatisticsView(APIView):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
+class ApplicationStageProgressAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, application_id):
+
+        try:
+            candidate = request.user
+
+            repository = ApplicationProgressRepository()
+            use_case = GetApplicationProgressUseCase(repository)
+
+            result = use_case.execute(
+                application_id=application_id,
+                candidate_id=candidate.id
+            )
+            serializer = ApplicationProgressSerializer(data=result)
+            if not serializer.is_valid():
+                return Response({
+                    'success': False,
+                    'error': 'Invalid data format',
+                    'details': serializer.errors
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Return appropriate response
+            if result['success']:
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

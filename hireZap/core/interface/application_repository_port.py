@@ -53,3 +53,4 @@ class ApplicationRepositoryPort(ABC):
     def get_candidate_draft(self, candidate_id: int, job_id: int) -> Optional[Application]:
         """Get candidate's draft application for a specific job"""
         return NotImplementedError
+    
