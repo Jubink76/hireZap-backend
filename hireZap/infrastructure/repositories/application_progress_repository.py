@@ -4,7 +4,7 @@ from core.interface.application_progress_repository_port import ApplicationProgr
 from core.entities.selection_stage import SelectionStage as SelectionStageEntity
 from application.models import ApplicationModel, ApplicationStageHistory
 from selection_process.models import SelectionProcessModel
-from telephonic_round.models import TelephonicInterview, InterviewPerformanceResult
+from telephonic_round.models import TelephonicInterview, InterviewPerformanceResult,CallSession
 
 import logging
 
@@ -87,7 +87,8 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
         """Get telephonic interview progress for application"""
         try:
             interview = TelephonicInterview.objects.select_related(
-                'performance_result'
+                'performance_result',
+                'call_session'  
             ).get(
                 application_id=application_id
             )
@@ -112,6 +113,20 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
                 duration_seconds = (interview.ended_at - interview.started_at).total_seconds()
                 actual_duration = int(duration_seconds / 60)  # Convert to minutes
             
+            # ✅ GET SESSION_ID from active call session
+            session_id = None
+            try:
+                # Direct access - OneToOne relationship
+                call_session = interview.call_session
+                if call_session:
+                    session_id = call_session.session_id
+            except CallSession.DoesNotExist:
+                # No call session exists yet
+                session_id = None
+            except AttributeError:
+                # call_session attribute doesn't exist
+                session_id = None
+            
             return {
                 'interview_id': interview.id,
                 'status': interview.status,
@@ -121,7 +136,8 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
                 'started_at': interview.started_at,
                 'completed_at': interview.ended_at,
                 'feedback': feedback,
-                'actual_duration_minutes': actual_duration
+                'actual_duration_minutes': actual_duration,
+                'session_id': session_id  
             }
         except TelephonicInterview.DoesNotExist:
             return None

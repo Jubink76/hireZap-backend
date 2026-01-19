@@ -156,6 +156,32 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'data': event.get('data', {})
         }))
 
+    async def call_started(self, event):
+        """
+        Handle call_started message
+        Sends notification when a call has started
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'call_started',
+            'message': event.get('message', 'Call has started'),
+            'data': event.get('data', {})
+        }))
+        
+    async def candidate_joined(self, event):
+        """Handle candidate_joined notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'candidate_joined',
+            'message': event.get('message', 'Candidate has joined'),
+            'data': event.get('data', {})
+        }))
+
+    async def call_ended(self, event):
+        """Handle call_ended notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'call_ended',
+            'message': event.get('message', 'Call has ended'),
+            'data': event.get('data', {})
+        }))
 
 class CompanyConsumer(AsyncWebsocketConsumer):
     async def connect(self):

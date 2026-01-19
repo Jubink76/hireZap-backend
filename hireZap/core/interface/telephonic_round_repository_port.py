@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 class TelephonicRoundRepositoryPort(ABC):
 
     @abstractmethod
-    def get_settings_by_id(self, job_id:int):
+    def get_settings_by_job(self, job_id:int):
         """Get telephonic settings for a job"""
         return NotImplementedError
     

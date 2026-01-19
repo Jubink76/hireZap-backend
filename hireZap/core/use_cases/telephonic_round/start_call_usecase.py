@@ -75,7 +75,7 @@ class StartCallUseCase:
                 }
             
             # Allow starting up to 30 minutes after scheduled time
-            latest_start = scheduled_time + timedelta(minutes=30)
+            latest_start = scheduled_time + timedelta(minutes=60)
             
             if now > latest_start:
                 return {

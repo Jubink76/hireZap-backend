@@ -112,7 +112,8 @@ class GetApplicationProgressUseCase:
             'started_at': None,
             'completed_at': None,
             'scheduled_at': None,
-            'interview_id': None
+            'interview_id': None,
+            'session_id': None
         }
         
         # Check if this stage matches the current stage
@@ -155,11 +156,19 @@ class GetApplicationProgressUseCase:
         
         # Check Telephonic Round
         elif stage.slug == 'telephonic-round':
-            telephonic_data = self.repository.get_telephonic_interview_progress(application_id)
-            if telephonic_data:
-                progress_data.update(telephonic_data)
-            elif is_current_stage:
-                progress_data['status'] = 'in_progress'
+            try:
+                telephonic_data = self.repository.get_telephonic_interview_progress(application_id)
+                if telephonic_data:
+                    # This already includes session_id
+                    progress_data.update(telephonic_data)
+                elif is_current_stage:
+                    progress_data['status'] = 'in_progress'
+            except Exception as e:
+                print(f"Error getting telephonic interview progress: {e}")
+                import traceback
+                traceback.print_exc()
+                if is_current_stage:
+                    progress_data['status'] = 'in_progress'
         
         # For other stages, check if current and set status accordingly
         elif is_current_stage:

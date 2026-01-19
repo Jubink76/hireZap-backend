@@ -60,7 +60,7 @@ class EndCallUseCase:
         interview = call_session.interview
         
         # 2. Validate call is in progress
-        if interview.status != 'in_progress':
+        if interview.status != 'joined':
             return {
                 'success': False,
                 'error': f'Call is not in progress. Current status: {interview.status}'

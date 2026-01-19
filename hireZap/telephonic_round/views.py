@@ -32,6 +32,7 @@ from core.use_cases.telephonic_round.manual_score_override_usecase import Manual
 from core.use_cases.telephonic_round.move_to_next_stage_usecase import MoveToNextStageUseCase
 from core.use_cases.telephonic_round.reschedule_interview_usecase import RescheduleInterviewUseCase
 from core.use_cases.telephonic_round.start_call_usecase import StartCallUseCase
+from core.use_cases.telephonic_round.join_call_usecase import JoinCallUsecase
 from core.use_cases.telephonic_round.get_telephonic_round_settings_usecase import GetTelephonicRoundSettings
 from core.use_cases.telephonic_round.update_settings_usecase import UpdateSettingsUseCase
 from core.use_cases.telephonic_round.get_stats_usecase import GetStatsUsecase
@@ -287,6 +288,7 @@ class StartCallAPIView(APIView):
                 interview_id=interview_id,
                 recruiter_id=request.user.id
             )
+            print("result", result)
             
             if result['success']:
                 return Response(result)
@@ -299,6 +301,39 @@ class StartCallAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class JoinCallAPIView(APIView):
+    """Candidate joins telephonic inteview call"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            interview_id = request.data.get('interview_id')
+            if not interview_id:
+                return Response({
+                    'success':False,
+                    'error':'Interview Id is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            repository = TelephonicRoundRepository()
+            notification_service =NotificationService()
+
+            use_case = JoinCallUsecase(repository, notification_service)
+            result = use_case.execute(
+                interview_id=interview_id,
+                candidate_id=request.user.id
+            )
+
+            if result['success']:
+                return Response(result)
+            else:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class EndCallAPIView(APIView):
     """End call and upload recording"""
@@ -306,6 +341,9 @@ class EndCallAPIView(APIView):
     
     def post(self, request):
         try:
+            session_id = request.data.get('call_session_id')
+            duration_seconds = request.data.get('duration_seconds')
+            connection_quality = request.data.get('connection_quality', 'good')
             # Validate input
             serializer = EndCallSerializer(data=request.data)
             if not serializer.is_valid():
@@ -318,6 +356,12 @@ class EndCallAPIView(APIView):
             
             # Get recording file if provided
             recording_file = request.FILES.get('recording_file', None)
+            print(f"📥 End Call Request:")
+            print(f"   Session ID: {session_id}")
+            print(f"   Duration: {duration_seconds}s")
+            print(f"   Quality: {connection_quality}")
+            print(f"   Recording: {recording_file.name if recording_file else 'None'}")
+            print(f"   Recording Size: {recording_file.size if recording_file else 0} bytes")
             
             # Initialize dependencies
             repository = TelephonicRoundRepository()

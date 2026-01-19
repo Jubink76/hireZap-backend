@@ -51,6 +51,7 @@ class TelephonicInterview(models.Model):
         ('not_scheduled','Not Scheduled'),
         ('scheduled', 'Scheduled'),
         ('in_progress', 'In Progress'),
+        ('joined', 'Candidate Joined'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
         ('no_show', 'No Show'),
@@ -90,6 +91,7 @@ class TelephonicInterview(models.Model):
     #timing
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    candidate_joined_at = models.DateTimeField(null=True, blank=True)
     actual_duration_minutes = models.IntegerField(null=True, blank=True)
 
     #Notes
@@ -179,6 +181,7 @@ class CallSession(models.Model):
     
     # Timestamps
     started_at = models.DateTimeField(auto_now_add=True)
+    candidate_joined_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)

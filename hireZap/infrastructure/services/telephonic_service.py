@@ -152,7 +152,7 @@ class InterviewScorerService:
     
     def __init__(self):
         # Initialize the new Gemini client
-        self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
     
     def analyze_interview(
         self,
