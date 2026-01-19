@@ -79,6 +79,11 @@ class GetTelephonicRoundCandidates:
         actual_duration_seconds = None
         if interview.actual_duration_minutes:
             actual_duration_seconds = interview.actual_duration_minutes * 60
+
+        session_id = None
+        if hasattr(interview, 'call_session') and interview.call_session:
+            session_id = interview.call_session.session_id
+
         return {
             'interview_id': interview.id,
             'application_id': interview.application_id,
@@ -96,6 +101,9 @@ class GetTelephonicRoundCandidates:
             'ended_at': interview.ended_at.isoformat() if interview.ended_at else None,
             'actual_duration_minutes': interview.actual_duration_minutes,
             'actual_duration_seconds': actual_duration_seconds,
+
+            'session_id': session_id,
+
             'has_recording': bool(
                 hasattr(interview, 'call_session') and 
                 interview.call_session and 
@@ -151,6 +159,7 @@ class GetTelephonicRoundCandidates:
             'started_at': None,
             'ended_at': None,
             'actual_duration_seconds': None,
+            'session_id': None,
             'has_recording': False,
             'has_transcription': False,
             'has_results': False,

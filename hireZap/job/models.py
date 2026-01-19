@@ -38,6 +38,7 @@ class JobModel(models.Model):
     cover_image = models.URLField(max_length=500, null=True, blank=True)
     role_summary = models.TextField(null=True, blank=True)
     skills_required = models.JSONField(default=list, blank=True)  # Store as JSON array
+    min_experience = models.IntegerField(null=True, blank=True)
     key_responsibilities = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
     benefits = models.TextField(null=True, blank=True)

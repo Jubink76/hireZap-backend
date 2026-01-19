@@ -8,6 +8,7 @@ from .views import (
     BulkScheduleInterviewsAPIView,
     RescheduleInterviewAPIView,
     StartCallAPIView,
+    JoinCallAPIView,
     EndCallAPIView,
     GetInterviewDetailsAPIView,
     ManualScoreOverrideAPIView,
@@ -36,6 +37,7 @@ urlpatterns = [
     
     # ================== CALL MANAGEMENT ==================
     path('start-call/',StartCallAPIView.as_view(),name='start-call'),
+    path('join-call/',JoinCallAPIView.as_view(), name='join-call'),
     path('end-call/',EndCallAPIView.as_view(),name='end-call'),
     
     # ================== INTERVIEW DETAILS ==================

@@ -17,7 +17,7 @@ from django.utils import timezone
 class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
 
     #settings
-    def get_settings_by_id(self, job_id:int) -> Optional[TelephonicRoundSettings]:
+    def get_settings_by_job(self, job_id:int) -> Optional[TelephonicRoundSettings]:
         try:
             return TelephonicRoundSettings.objects.select_related('job').get(job_id=job_id)
         except TelephonicRoundSettings.DoesNotExist:
@@ -41,8 +41,8 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
                 'application__candidate',
                 'job',
                 'stage',
-                'conducted_by'
-            ).prefetch_related(
+                'conducted_by',
+                # ✅ FIX: Use select_related for OneToOne relationships
                 'call_session',
                 'transcription',
                 'performance_result'
@@ -55,8 +55,8 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             return TelephonicInterview.objects.select_related(
                 'application',
                 'job',
-                'stage'
-            ).prefetch_related(
+                'stage',
+                # ✅ FIX: Use select_related for OneToOne relationships
                 'call_session',
                 'transcription',
                 'performance_result'
@@ -70,8 +70,8 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             'application__candidate',
             'application__current_stage',
             'job',
-            'stage'
-        ).prefetch_related(
+            'stage',
+            # ✅ FIX: Use select_related for OneToOne relationships
             'call_session',
             'transcription',
             'performance_result'
@@ -175,7 +175,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
     
     def update_interview_status(self,interview_id:int, status:str, **kwargs) -> TelephonicInterview:
         interview = TelephonicInterview.objects.get(id=interview_id)
-        interview_status = status
+        interview.status = status
 
         for key, value in kwargs.items():
             setattr(interview, key,value)

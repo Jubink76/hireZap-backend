@@ -141,6 +141,7 @@ class StageProgressSerializer(serializers.Serializer):
     completed_at = serializers.DateTimeField(allow_null=True)
     scheduled_at = serializers.DateTimeField(allow_null=True)
     interview_id = serializers.IntegerField(allow_null=True)
+    session_id = serializers.CharField(allow_null=True)
 
 class ProgressSerializer(serializers.Serializer):
     """Serializer for overall progress"""
