@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'subscription',
     'resume_screening',
     'telephonic_round',
+    'hr_round',
 
 ]
 

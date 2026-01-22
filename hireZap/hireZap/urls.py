@@ -29,5 +29,6 @@ urlpatterns = [
     path('api/subscription/',include('subscription.urls')),
     path('api/resume-screening/',include('resume_screening.urls')),
     path('api/telephonic-round/',include('telephonic_round.urls')),
+    path('api/hr-round/',include('hr_round.urls')),
     
 ]
