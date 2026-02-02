@@ -131,7 +131,6 @@ class GoogleAuthView(APIView):
 
         # 3. Generate tokens and set cookies
         tokens = get_tokens_for_user(user)
-        print(tokens)
         
         data = {
             'user': {
@@ -403,9 +402,13 @@ class RegisterOtpView(APIView):
         if not verified:
             return Response({'detail':'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
+        otp_after_verify = verify_otp_use_case.otp_repo.get_otp(email, 'registration')        
+
         pending = pending_reg_repo.get(email)
+
         if not pending:
             return Response({'detail':"Registration data expired"},status=status.HTTP_400_BAD_REQUEST)
+        
         user_entity = UserEntity(
             id = None,
             full_name= pending["name"],
@@ -415,27 +418,19 @@ class RegisterOtpView(APIView):
             role= pending.get("role","candidate"),
             profile_image_url= pending.get("profile_image_url")
         )
-        otp_entity = pending_reg_repo.get(email)
-        otp_in_repo = verify_otp_use_case.otp_repo.get_otp(email, 'registration')
 
         try:
-            created_user = reg_use_case.execute(user_entity)
+            created_user = reg_use_case.execute(user_entity, code)
         except ValueError as e:
             return Response({'detail': str(e)}, status= status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': 'Registration failed'}, status= status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         pending_reg_repo.delete(email)
         
         #jwt token for the newly registered user    
         refresh = RefreshToken.for_user(created_user)
         access = refresh.access_token
-
-         # Debug logs
-        print("\n" + "="*80)
-        print("TOKEN GENERATION DEBUG")
-        print(f"User ID in token: {access.get('user_id')}")
-        print(f"Access token first 50 chars: {str(access)[:50]}")
-        print(f"Refresh token first 50 chars: {str(refresh)[:50]}")
-        print("="*80 + "\n")
 
         response = Response(UserReadSerializer(created_user).data, status = status.HTTP_201_CREATED)
         set_jwt_cookies(response,access, refresh, remember_me=False)

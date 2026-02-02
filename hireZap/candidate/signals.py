@@ -9,6 +9,6 @@ def create_candidate_profile(sender,instance,created,**kwargs):
     if created and instance.role == 'candidate':
         CandidateProfile.objects.create(
             user = instance,
-            phone_number = instance.phone_number if hasattr(instance,'phone') else None,
+            phone_number = instance.phone if hasattr(instance,'phone') else None,
             location = instance.location if hasattr(instance,'location') else None
         )

@@ -39,6 +39,8 @@ class OtpRepository(OtpRepositoryPort):
         data = json.loads(raw)
         data["verified"] = True
         ttl = self.client.ttl(key)
+        if ttl <= 0:
+            ttl = 300
         self.client.setex(key, ttl, json.dumps(data))
 
     def delete_otp(self, email, action_type):

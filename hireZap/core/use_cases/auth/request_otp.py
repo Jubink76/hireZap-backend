@@ -16,7 +16,7 @@ class RequestOtpUsecase:
         otp = OtpEntity(
             email = email,
             code = code,
-            expires_at = datetime.now() + timedelta(seconds=60),
+            expires_at = datetime.now() + timedelta(minutes=5),
             action_type = action_type,
             verified = False
         )
