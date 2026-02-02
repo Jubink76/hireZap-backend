@@ -3,6 +3,7 @@ import json
 from typing import Dict, List, BinaryIO
 from django.conf import settings
 from google import genai
+from groq import Groq
 from google.genai import types
 from faster_whisper import WhisperModel
 import tempfile
@@ -152,7 +153,7 @@ class InterviewScorerService:
     
     def __init__(self):
         # Initialize the new Gemini client
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.client = Groq(api_key=settings.GROQ_API_KEY)
     
     def analyze_interview(
         self,
@@ -184,17 +185,20 @@ class InterviewScorerService:
             )
             
             # Get AI analysis using new API
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    max_output_tokens=2000
-                )
+            response = self.client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=2000,
             )
             
             # Get response text
-            analysis_text = response.text.strip()
+            analysis_text = response.choices[0].message.content.strip()
             
             # Parse JSON response
             # Remove markdown code blocks if present

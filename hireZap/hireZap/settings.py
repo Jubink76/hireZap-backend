@@ -267,8 +267,8 @@ CORS_EXPOSE_HEADERS = [
 ]
 
 # email configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = env('EMAIL_PORT', cast=int, default=587)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
@@ -320,6 +320,7 @@ CLOUDINARY = {
 }
 
 GEMINI_API_KEY = env('GEMINI_API_KEY')
+GROQ_API_KEY = env('GROQ_API_KEY')
 
 # Whisper Configuration
 WHISPER_MODEL_SIZE = 'base'
