@@ -205,7 +205,38 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     # =========================================================================
     # HR INTERVIEW NOTIFICATIONS
     # =========================================================================
+    async def hr_interview(self, event):
+        """HR interview notification - generic handler"""
+        await self.send(text_data=json.dumps({
+            'type': event.get('notification_type', 'hr_interview'),
+            'message': event.get('message', 'HR Interview update'),
+            'data': event.get('data', {})
+        }))
     
+    async def hr_interview_scheduled(self, event):
+        """HR interview scheduled notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'hr_interview_scheduled',
+            'message': event.get('message', 'HR interview has been scheduled'),
+            'data': event.get('data', {})
+        }))
+    
+    async def hr_meeting_started(self, event):
+        """HR meeting started notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'hr_meeting_started',
+            'message': event.get('message', 'HR interview has started'),
+            'data': event.get('data', {})
+        }))
+    
+    async def hr_interview_ready(self, event):
+        """HR interview ready to join notification"""
+        await self.send(text_data=json.dumps({
+            'type': 'hr_interview_ready',
+            'message': event.get('message', 'You can now join the HR interview'),
+            'data': event.get('data', {})
+        }))
+
     async def interview_ended(self, event):
         """HR interview ended notification"""
         await self.send(text_data=json.dumps({
@@ -272,19 +303,11 @@ class CompanyConsumer(AsyncWebsocketConsumer):
         }))
 
 # =============================================================================
-# HR INTERVIEW SPECIFIC CONSUMERS (separate WebSocket connections)
+# HR INTERVIEW SPECIFIC CONSUMERS
 # =============================================================================
 
 class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
-    """
-    WebSocket consumer for HR interview meetings
-    Handles:
-    - WebRTC signaling (offer/answer/ICE candidates)
-    - Connection status
-    - Recording controls
-    - Meeting controls
-    """
-    
+
     async def connect(self):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.user_id = self.scope['url_route']['kwargs']['user_id']
@@ -299,7 +322,7 @@ class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
-        print(f"✅ Meeting WebSocket connected: {self.user_type} {self.user_id} in room {self.room_id}")
+        print(f" Meeting WebSocket connected: {self.user_type} {self.user_id} in room {self.room_id}")
         
         # Notify others that user joined
         await self.channel_layer.group_send(
@@ -328,7 +351,7 @@ class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         
-        print(f"❌ Meeting WebSocket disconnected: {self.user_type} {self.user_id}")
+        print(f" Meeting WebSocket disconnected: {self.user_type} {self.user_id}")
     
     async def receive(self, text_data):
         """Handle incoming WebSocket messages"""
@@ -415,7 +438,7 @@ class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
                 )
         
         except Exception as e:
-            print(f"❌ WebSocket receive error: {str(e)}")
+            print(f" WebSocket receive error: {str(e)}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
                 'error': str(e)
@@ -515,11 +538,7 @@ class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
 
 
 class HRInterviewChatConsumer(AsyncWebsocketConsumer):
-    """
-    WebSocket consumer for interview chat
-    Handles real-time chat during HR interviews
-    """
-    
+
     async def connect(self):
         self.interview_id = self.scope['url_route']['kwargs']['interview_id']
         self.user_id = self.scope['url_route']['kwargs']['user_id']
@@ -534,7 +553,7 @@ class HRInterviewChatConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
-        print(f"✅ Chat WebSocket connected: {self.user_type} {self.user_id} in interview {self.interview_id}")
+        print(f" Chat WebSocket connected: {self.user_type} {self.user_id} in interview {self.interview_id}")
         
         # Send chat history
         messages = await self.get_chat_history()
@@ -549,7 +568,7 @@ class HRInterviewChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        print(f"❌ Chat WebSocket disconnected: {self.user_type} {self.user_id}")
+        print(f" Chat WebSocket disconnected: {self.user_type} {self.user_id}")
     
     async def receive(self, text_data):
         """Handle incoming chat messages"""
@@ -597,7 +616,7 @@ class HRInterviewChatConsumer(AsyncWebsocketConsumer):
                 )
         
         except Exception as e:
-            print(f"❌ Chat receive error: {str(e)}")
+            print(f" Chat receive error: {str(e)}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
                 'error': str(e)

@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAdminView(APIView):
-    """Base view with common admin setup"""
     permission_classes = [IsAuthenticated, IsAdminUser]
     
     def __init__(self, **kwargs):
@@ -32,19 +31,7 @@ class BaseAdminView(APIView):
 
 # ========== DASHBOARD ==========
 class AdminDashboardView(BaseAdminView):
-    """Get admin dashboard statistics"""
-    
     def get(self, request):
-        """
-        GET /api/admin/dashboard/
-        
-        Returns dashboard statistics including:
-        - Total counts of candidates, recruiters, companies, jobs, applications
-        - Pending companies count
-        - Active jobs count
-        - Applications by status
-        - Recent activity (last 7 days)
-        """
         usecase = GetDashboardStatsUseCase(self.admin_repo)
         result = usecase.execute()
         
@@ -56,20 +43,8 @@ class AdminDashboardView(BaseAdminView):
 
 # ========== CANDIDATES ==========
 class AdminCandidatesListView(BaseAdminView):
-    """Get all candidates with pagination and filters"""
     permission_classes = [IsAdminUser]
     def get(self, request):
-        """
-        GET /api/admin/candidates/?page=1&page_size=10&is_active=true&location=New York
-        
-        Query Parameters:
-        - page: Page number (default: 1)
-        - page_size: Items per page (default: 10, max: 100)
-        - is_active: Filter by active status (optional)
-        - location: Filter by location (optional)
-        
-        Returns paginated list of candidates with complete profiles
-        """
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 10))
         
@@ -90,21 +65,8 @@ class AdminCandidatesListView(BaseAdminView):
 
 
 class AdminCandidateDetailView(BaseAdminView):
-    """Get complete candidate details"""
     
     def get(self, request, user_id):
-        """
-        GET /api/admin/candidates/{user_id}/
-        
-        Returns complete candidate information including:
-        - User details
-        - Profile information
-        - Educations
-        - Experiences
-        - Skills
-        - Certifications
-        - Total applications count
-        """
         usecase = GetCandidateDetailsUseCase(self.admin_repo)
         result = usecase.execute(user_id)
         
@@ -120,23 +82,7 @@ class AdminCandidateDetailView(BaseAdminView):
 
 
 class AdminCandidateSearchView(BaseAdminView):
-    """Search candidates"""
-    
     def get(self, request):
-        """
-        GET /api/admin/candidates/search/?q=john
-        
-        Query Parameters:
-        - q: Search query (min 2 characters)
-        
-        Searches in:
-        - Email
-        - First name
-        - Last name
-        - Location
-        
-        Returns up to 50 matching candidates
-        """
         query = request.query_params.get('q', '').strip()
         
         usecase = SearchCandidatesUseCase(self.admin_repo)
@@ -150,22 +96,8 @@ class AdminCandidateSearchView(BaseAdminView):
 
 # ========== RECRUITERS ==========
 class AdminRecruitersListView(BaseAdminView):
-    """Get all recruiters with pagination"""
     
     def get(self, request):
-        """
-        GET /api/admin/recruiters/?page=1&page_size=10
-        
-        Query Parameters:
-        - page: Page number (default: 1)
-        - page_size: Items per page (default: 10, max: 100)
-        
-        Returns paginated list of recruiters with:
-        - User details
-        - Company information
-        - Job statistics
-        - Application statistics
-        """
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 10))
         
@@ -179,19 +111,8 @@ class AdminRecruitersListView(BaseAdminView):
 
 
 class AdminRecruiterDetailView(BaseAdminView):
-    """Get complete recruiter details"""
     
     def get(self, request, user_id):
-        """
-        GET /api/admin/recruiters/{user_id}/
-        
-        Returns complete recruiter information including:
-        - User details
-        - Company details
-        - Total jobs posted
-        - Active jobs count
-        - Total applications received
-        """
         usecase = GetRecruiterDetailsUseCase(self.admin_repo)
         result = usecase.execute(user_id)
         
@@ -208,23 +129,8 @@ class AdminRecruiterDetailView(BaseAdminView):
 
 # ========== JOBS ==========
 class AdminJobsListView(BaseAdminView):
-    """Get all jobs with details"""
     
     def get(self, request):
-        """
-        GET /api/admin/jobs/?page=1&page_size=10
-        
-        Query Parameters:
-        - page: Page number (default: 1)
-        - page_size: Items per page (default: 10, max: 100)
-        
-        Returns paginated list of jobs with:
-        - Job details
-        - Company information
-        - Recruiter email
-        - Application statistics
-        - Applications by status
-        """
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 10))
         
@@ -238,19 +144,8 @@ class AdminJobsListView(BaseAdminView):
 
 
 class AdminJobDetailView(BaseAdminView):
-    """Get complete job details"""
     
     def get(self, request, job_id):
-        """
-        GET /api/admin/jobs/{job_id}/
-        
-        Returns complete job information including:
-        - Job details
-        - Company details
-        - Recruiter email
-        - Total applications
-        - Applications breakdown by status
-        """
         usecase = GetJobDetailsUseCase(self.admin_repo)
         result = usecase.execute(job_id)
         
@@ -267,23 +162,8 @@ class AdminJobDetailView(BaseAdminView):
 
 # ========== APPLICATIONS ==========
 class AdminApplicationsListView(BaseAdminView):
-    """Get all applications with details"""
     
     def get(self, request):
-        """
-        GET /api/admin/applications/?page=1&page_size=10
-        
-        Query Parameters:
-        - page: Page number (default: 1)
-        - page_size: Items per page (default: 10, max: 100)
-        
-        Returns paginated list of applications with:
-        - Application details
-        - Candidate information
-        - Job title
-        - Company name
-        - Recruiter information
-        """
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 10))
         
@@ -297,19 +177,8 @@ class AdminApplicationsListView(BaseAdminView):
 
 
 class AdminApplicationDetailView(BaseAdminView):
-    """Get complete application details"""
     
     def get(self, request, application_id):
-        """
-        GET /api/admin/applications/{application_id}/
-        
-        Returns complete application information including:
-        - Application details
-        - Candidate name, email, phone
-        - Job title
-        - Company name
-        - Recruiter name and email
-        """
         usecase = GetApplicationDetailsUseCase(self.admin_repo)
         result = usecase.execute(application_id)
         

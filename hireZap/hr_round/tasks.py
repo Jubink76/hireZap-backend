@@ -1,14 +1,17 @@
 from celery import shared_task
 from django.utils import timezone
-from core.interface.hr_round_repository_port import HRRoundRepositoryPort
+from infrastructure.repositories.hr_round_repository import HRInterviewRepository
 from infrastructure.services.notification_service import NotificationService
 from infrastructure.services.hr_round_service import VideoProcessingService
+import logging
+logger = logging.getLogger(__name__)
+
 
 @shared_task(name='hr_interview.send_hr_interview_scheduled_email')
 def send_hr_interview_scheduled_email_task(interview_id: int):
     """Send email when HR interview is scheduled"""
     try:
-        repo = HRRoundRepositoryPort()
+        repo = HRInterviewRepository()
         interview = repo.get_interview_by_id(interview_id)
         
         if not interview:
@@ -54,14 +57,14 @@ Regards,
         # TODO: Implement actual email sending
         # send_email(to=candidate_email, subject=subject, message=message)
         
-        print(f"✅ HR Interview scheduled email sent to {candidate_email}")
+        logger.info(f" HR Interview scheduled email sent to {candidate_email}")
         
         repo.mark_email_sent(interview_id)
         
         return {'success': True}
         
     except Exception as e:
-        print(f"❌ Email sending failed: {str(e)}")
+        logger.error(f" Email sending failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
@@ -72,7 +75,7 @@ def send_hr_interview_reminders_task():
     Run every hour
     """
     try:
-        repo = HRRoundRepositoryPort    ()
+        repo = HRInterviewRepository()
         notification_service = NotificationService()
         
         # Get interviews that need reminders
@@ -100,7 +103,7 @@ def send_hr_interview_reminders_task():
             repo.mark_reminder_sent(interview.id)
             sent_count += 1
         
-        print(f"✅ Sent {sent_count} HR interview reminders")
+        logger.info(f" Sent {sent_count} HR interview reminders")
         
         return {
             'success': True,
@@ -108,7 +111,7 @@ def send_hr_interview_reminders_task():
         }
         
     except Exception as e:
-        print(f"❌ Reminder task failed: {str(e)}")
+        logger.error(f" Reminder task failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
@@ -144,7 +147,7 @@ Best regards,
     # TODO: Implement actual email sending
     # send_email(to=candidate_email, subject=subject, message=message)
     
-    print(f"✅ Reminder email sent to {candidate_email}")
+    logger.info(f" Reminder email sent to {candidate_email}")
 
 
 @shared_task(name='hr_interview.process_interview_completion')
@@ -156,7 +159,7 @@ def process_interview_completion_task(interview_id: int):
     3. Cleanup temporary data
     """
     try:
-        repo = HRRoundRepositoryPort()
+        repo = HRInterviewRepository()
         notification_service = NotificationService()
         
         interview = repo.get_interview_by_id(interview_id)
@@ -187,108 +190,108 @@ def process_interview_completion_task(interview_id: int):
         
         # Cleanup chat messages from Redis after 24 hours
         # (Keep in DB but remove from cache)
-        from infrastructure.services.hr_round_service import ChatService
-        chat_service = ChatService()
+        # from infrastructure.services.hr_round_service import ChatService
+        # chat_service = ChatService()
         
-        # Schedule cleanup for later (after 24h)
-        cleanup_interview_chat_task.apply_async(
-            args=[interview_id],
-            countdown=24 * 60 * 60  # 24 hours
-        )
+        # # Schedule cleanup for later (after 24h)
+        # cleanup_interview_chat_task.apply_async(
+        #     args=[interview_id],
+        #     countdown=24 * 60 * 60  # 24 hours
+        # )
         
-        print(f"✅ Interview completion processed for interview {interview_id}")
-        
-        return {'success': True}
-        
-    except Exception as e:
-        print(f"❌ Interview completion processing failed: {str(e)}")
-        return {'success': False, 'error': str(e)}
-
-
-@shared_task(name='hr_interview.cleanup_interview_chat')
-def cleanup_interview_chat_task(interview_id: int):
-    """Cleanup interview chat from Redis after interview ends"""
-    try:
-        from infrastructure.services.hr_round_service import ChatService
-        
-        chat_service = ChatService()
-        chat_service.delete_messages(interview_id)
-        
-        print(f"✅ Cleaned up chat messages for interview {interview_id}")
+        # logger.info(f" Interview completion processed for interview {interview_id}")
         
         return {'success': True}
         
     except Exception as e:
-        print(f"❌ Chat cleanup failed: {str(e)}")
+        logger.info(f" Interview completion processing failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
-@shared_task(name='hr_interview.process_recording_upload')
-def process_recording_upload_task(
-    interview_id: int,
-    video_url: str,
-    video_key: str,
-    duration_seconds: int = None,
-    file_size_bytes: int = None
-):
-    """
-    Process uploaded recording:
-    1. Save to database
-    2. Generate thumbnail (optional)
-    3. Send notifications
-    """
-    try:
-        repo = HRRoundRepositoryPort()
-        video_service = VideoProcessingService()
-        notification_service = NotificationService()
+# @shared_task(name='hr_interview.cleanup_interview_chat')
+# def cleanup_interview_chat_task(interview_id: int):
+#     """Cleanup interview chat from Redis after interview ends"""
+#     try:
+#         from infrastructure.services.hr_round_service import ChatService
         
-        # Save recording to database
-        recording = repo.create_recording(
-            interview_id=interview_id,
-            video_url=video_url,
-            video_key=video_key,
-            duration_seconds=duration_seconds,
-            file_size_bytes=file_size_bytes
-        )
+#         chat_service = ChatService()
+#         chat_service.delete_messages(interview_id)
         
-        print(f"✅ Recording saved for interview {interview_id}")
+#         logger.info(f" Cleaned up chat messages for interview {interview_id}")
         
-        # Generate thumbnail (optional - can be skipped for now)
-        # thumbnail_result = video_service.generate_thumbnail(video_url, interview_id)
-        # if thumbnail_result['success'] and thumbnail_result.get('thumbnail_url'):
-        #     repo.update_recording_thumbnail(
-        #         interview_id=interview_id,
-        #         thumbnail_url=thumbnail_result['thumbnail_url'],
-        #         thumbnail_key=thumbnail_result['thumbnail_key']
-        #     )
+#         return {'success': True}
         
-        # Send notification to recruiter
-        interview = repo.get_interview_by_id(interview_id)
-        notification_service.send_websocket_notification(
-            user_id=interview.conducted_by_id,
-            notification_type='recording_uploaded',
-            data={
-                'interview_id': interview_id,
-                'candidate_name': interview.candidate_name,
-                'message': 'Interview recording uploaded successfully'
-            }
-        )
+#     except Exception as e:
+#         logger.error(f" Chat cleanup failed: {str(e)}")
+#         return {'success': False, 'error': str(e)}
+
+
+# @shared_task(name='hr_interview.process_recording_upload')
+# def process_recording_upload_task(
+#     interview_id: int,
+#     video_url: str,
+#     video_key: str,
+#     duration_seconds: int = None,
+#     file_size_bytes: int = None
+# ):
+#     """
+#     Process uploaded recording:
+#     1. Save to database
+#     2. Generate thumbnail (optional)
+#     3. Send notifications
+#     """
+#     try:
+#         repo = HRRoundRepositoryPort()
+#         video_service = VideoProcessingService()
+#         notification_service = NotificationService()
         
-        return {
-            'success': True,
-            'recording_id': recording.id
-        }
+#         # Save recording to database
+#         recording = repo.create_recording(
+#             interview_id=interview_id,
+#             video_url=video_url,
+#             video_key=video_key,
+#             duration_seconds=duration_seconds,
+#             file_size_bytes=file_size_bytes
+#         )
         
-    except Exception as e:
-        print(f"❌ Recording processing failed: {str(e)}")
-        return {'success': False, 'error': str(e)}
+#         logger.info(f" Recording saved for interview {interview_id}")
+        
+#         # Generate thumbnail (optional - can be skipped for now)
+#         # thumbnail_result = video_service.generate_thumbnail(video_url, interview_id)
+#         # if thumbnail_result['success'] and thumbnail_result.get('thumbnail_url'):
+#         #     repo.update_recording_thumbnail(
+#         #         interview_id=interview_id,
+#         #         thumbnail_url=thumbnail_result['thumbnail_url'],
+#         #         thumbnail_key=thumbnail_result['thumbnail_key']
+#         #     )
+        
+#         # Send notification to recruiter
+#         interview = repo.get_interview_by_id(interview_id)
+#         notification_service.send_websocket_notification(
+#             user_id=interview.conducted_by_id,
+#             notification_type='recording_uploaded',
+#             data={
+#                 'interview_id': interview_id,
+#                 'candidate_name': interview.candidate_name,
+#                 'message': 'Interview recording uploaded successfully'
+#             }
+#         )
+        
+#         return {
+#             'success': True,
+#             'recording_id': recording.id
+#         }
+        
+#     except Exception as e:
+#         logger.error(f" Recording processing failed: {str(e)}")
+#         return {'success': False, 'error': str(e)}
 
 
 @shared_task(name='hr_interview.send_hr_interview_result_email')
 def send_hr_interview_result_email_task(interview_id: int):
     """Send interview result email to candidate"""
     try:
-        repo = HRRoundRepositoryPort()
+        repo = HRInterviewRepository()
         interview = repo.get_interview_by_id(interview_id)
         
         if not interview or not hasattr(interview, 'result'):
@@ -338,10 +341,10 @@ Best regards,
         # TODO: Implement actual email sending
         # send_email(to=candidate_email, subject=subject, message=message)
         
-        print(f"✅ Result email sent to {candidate_email}")
+        logger.info(f"Result email sent to {candidate_email}")
         
         return {'success': True}
         
     except Exception as e:
-        print(f"❌ Result email failed: {str(e)}")
+        logger.error(f" Result email failed: {str(e)}")
         return {'success': False, 'error': str(e)}

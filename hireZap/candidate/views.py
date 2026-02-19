@@ -110,7 +110,6 @@ class SkillDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, skill_id):
-        """Delete a skill"""
         skill = candidate_repo.get_skill_by_id(skill_id)
         if not skill or skill.candidate_id != request.user.id:
             return Response(
@@ -135,7 +134,6 @@ class EducationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List all education records"""
         educations = candidate_repo.get_educations(request.user.id)
         return Response({
             "success": True,
@@ -143,7 +141,6 @@ class EducationListView(APIView):
         }, status=status.HTTP_200_OK)
     
     def post(self, request):
-        """Add education with validation"""
         # Validate incoming data
         serializer = EducationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -152,7 +149,6 @@ class EducationListView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Execute use case with validated data
         result = add_education_usecase.execute(
             candidate_id=request.user.id,
             educational_data=serializer.validated_data
@@ -171,7 +167,6 @@ class EducationDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, education_id):
-        """Delete education record"""
         education = candidate_repo.get_education_by_id(education_id)
         if not education or education.candidate_id != request.user.id:
             return Response(
@@ -196,7 +191,6 @@ class ExperienceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List all experiences"""
         experiences = candidate_repo.get_experiences(request.user.id)
         return Response({
             "success": True,
@@ -204,7 +198,6 @@ class ExperienceListView(APIView):
         }, status=status.HTTP_200_OK)
     
     def post(self, request):
-        """Add experience with validation"""
         # Validate incoming data
         serializer = ExperienceSerializer(data=request.data)
         if not serializer.is_valid():
@@ -232,7 +225,6 @@ class ExperienceDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, experience_id):
-        """Delete experience"""
         experience = candidate_repo.get_experience_by_id(experience_id)
         if not experience or experience.candidate_id != request.user.id:
             return Response(
@@ -257,7 +249,6 @@ class CertificationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List all certifications"""
         certifications = candidate_repo.get_certifications(request.user.id)  # Fixed method name
         return Response({
             "success": True,
@@ -293,7 +284,6 @@ class CertificationDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, certification_id):
-        """Delete certification"""
         certification = candidate_repo.get_certification_by_id(certification_id)
         if not certification or certification.candidate_id != request.user.id:
             return Response(

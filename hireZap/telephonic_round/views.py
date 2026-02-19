@@ -4,6 +4,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 import uuid
+import logging
+logger = logging.getLogger(__name__)
 
 from .serializers import (
     TelephonicRoundSettingsSerializer,
@@ -113,7 +115,6 @@ class UpdateTelephonicSettingsAPIView(APIView):
         
 
 class GetTelephonicCandidatesAPIView(APIView):
-    """Get all candidates for telephonic round of a job"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, job_id):
@@ -140,7 +141,6 @@ class GetTelephonicCandidatesAPIView(APIView):
 
 
 class ScheduleInterviewAPIView(APIView):
-    """Schedule single interview"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -184,7 +184,6 @@ class ScheduleInterviewAPIView(APIView):
 
 
 class BulkScheduleInterviewsAPIView(APIView):
-    """Bulk schedule interviews"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -219,7 +218,6 @@ class BulkScheduleInterviewsAPIView(APIView):
 
 
 class RescheduleInterviewAPIView(APIView):
-    """Reschedule an existing interview"""
     permission_classes = [IsAuthenticated]
     
     def put(self, request, interview_id):
@@ -263,7 +261,6 @@ class RescheduleInterviewAPIView(APIView):
 
 
 class StartCallAPIView(APIView):
-    """Start telephonic interview call"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -302,7 +299,6 @@ class StartCallAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class JoinCallAPIView(APIView):
-    """Candidate joins telephonic inteview call"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -336,7 +332,6 @@ class JoinCallAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class EndCallAPIView(APIView):
-    """End call and upload recording"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -356,12 +351,12 @@ class EndCallAPIView(APIView):
             
             # Get recording file if provided
             recording_file = request.FILES.get('recording_file', None)
-            print(f"📥 End Call Request:")
-            print(f"   Session ID: {session_id}")
-            print(f"   Duration: {duration_seconds}s")
-            print(f"   Quality: {connection_quality}")
-            print(f"   Recording: {recording_file.name if recording_file else 'None'}")
-            print(f"   Recording Size: {recording_file.size if recording_file else 0} bytes")
+            logger.info(f" End Call Request:")
+            logger.info(f" Session ID: {session_id}")
+            logger.info(f" Duration: {duration_seconds}s")
+            logger.info(f" Quality: {connection_quality}")
+            logger.info(f" Recording: {recording_file.name if recording_file else 'None'}")
+            logger.info(f" Recording Size: {recording_file.size if recording_file else 0} bytes")
             
             # Initialize dependencies
             repository = TelephonicRoundRepository()
@@ -390,7 +385,6 @@ class EndCallAPIView(APIView):
 
 
 class GetInterviewDetailsAPIView(APIView):
-    """Get detailed interview results"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, interview_id):
@@ -415,7 +409,6 @@ class GetInterviewDetailsAPIView(APIView):
 
 
 class ManualScoreOverrideAPIView(APIView):
-    """Override AI score with manual score"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -457,7 +450,6 @@ class ManualScoreOverrideAPIView(APIView):
 
 
 class MoveToNextStageAPIView(APIView):
-    """Move qualified candidates to next stage"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -496,7 +488,6 @@ class MoveToNextStageAPIView(APIView):
 
 
 class GetInterviewStatsAPIView(APIView):
-    """Get statistics for telephonic round"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, job_id):
@@ -521,10 +512,6 @@ class GetInterviewStatsAPIView(APIView):
 
 
 class AnalyzeInterviewAPIView(APIView):
-    """
-    Manually trigger interview analysis
-    (Usually done automatically via Celery after call ends)
-    """
     permission_classes = [IsAuthenticated]
     
     def post(self, request, interview_id):

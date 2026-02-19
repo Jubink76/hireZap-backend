@@ -9,16 +9,13 @@ from infrastructure.services.notification_service import NotificationService
 
 
 class EndCallUseCase:
-    """
-    End telephonic interview call and save recording
-    """
     
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
         storage: StorageRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.storage = storage
         self.notification_service = notification_service
@@ -28,25 +25,7 @@ class EndCallUseCase:
         session_id: str,
         duration_seconds: int,
         recording_file: Optional[BinaryIO] = None,
-        connection_quality: str = 'good'
-    ) -> Dict:
-        """
-        End call and process recording
-        
-        Args:
-            session_id: Call session ID
-            duration_seconds: Actual call duration in seconds
-            recording_file: Audio recording file (optional)
-            connection_quality: Connection quality rating
-        
-        Returns:
-            {
-                'success': bool,
-                'interview_id': int,
-                'recording_url': str,
-                'message': str
-            }
-        """
+        connection_quality: str = 'good') -> Dict:
         
         # 1. Get call session
         call_session = self.repository.get_call_session_by_id(session_id)

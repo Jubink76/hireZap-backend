@@ -4,7 +4,6 @@ from core.interface.telephonic_round_repository_port import TelephonicRoundRepos
 from infrastructure.services.notification_service import NotificationService
 
 class JoinCallUsecase:
-    """Candidate joins an in progress telephonic interview call"""
     def __init__(
             self,
             repository:TelephonicRoundRepositoryPort,

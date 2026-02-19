@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-
+import json
 from application.serializers import (
     ApplicationCreateSerializer,
     UpdateApplicationStatusSerializer,
@@ -117,7 +117,6 @@ class JobApplicationView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             status_filter = request.query_params.get('status',None)
-            print("status filter", status_filter)
             result = get_application_by_job_usecase.execute(job_id,status_filter)
             if not result['success']:
                 return Response({

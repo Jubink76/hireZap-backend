@@ -18,7 +18,7 @@ from job.models import JobModel
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 class HRInterviewRepository(HRRoundRepositoryPort):
 
-    # ==================== Settings ====================
+    #Settings
     
     def get_settings_by_id(self,job_id:int) ->Optional[HRRoundSettings]:
         try:
@@ -35,7 +35,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
             defaults = settings_data
         )
         return settings
-      # ==================== Interviews ====================
+      #Interviews
     
     def create_interview(self,
                          application_id:int,
@@ -74,8 +74,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     def list_interviews_by_job(
         self,
         job_id: int,
-        status: str = None
-    ) -> List[HRInterview]:
+        status: str = None) -> List[HRInterview]:
         """List interviews for a job"""
         queryset = HRInterview.objects.filter(job_id=job_id)
         if status:
@@ -90,8 +89,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     def list_interviews_by_recruiter(
         self,
         recruiter_id: int,
-        status: str = None
-    ) -> List[HRInterview]:
+        status: str = None) -> List[HRInterview]:
         """List interviews conducted by recruiter"""
         queryset = HRInterview.objects.filter(conducted_by_id=recruiter_id)
         if status:
@@ -110,10 +108,8 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         duration_minutes: int,
         timezone_str: str,
         conducted_by_id: int,
-        scheduling_notes: str = None
-    ) -> HRInterview:
+        scheduling_notes: str = None) -> HRInterview:
         """Schedule an HR interview"""
-        
         # Get or create interview
         application = ApplicationModel.objects.get(id=application_id)
         interview, created = HRInterview.objects.get_or_create(
@@ -123,7 +119,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
                 'stage_id': application.current_stage_id
             }
         )
-        
+    
         # Update interview
         interview.scheduled_at = scheduled_at
         interview.scheduled_duration_minutes = duration_minutes
@@ -148,8 +144,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         duration_minutes: int,
         timezone_str: str,
         conducted_by_id: int,
-        scheduling_notes: str = None
-    ) -> List[HRInterview]:
+        scheduling_notes: str = None) -> List[HRInterview]:
         """Schedule multiple interviews at once"""
         
         interviews = []
@@ -170,8 +165,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         self,
         interview_id: int,
         status: str,
-        **kwargs
-    ) -> HRInterview:
+        **kwargs) -> HRInterview:
         """Update interview status"""
         interview = self.get_interview_by_id(interview_id)
         interview.status = status
@@ -196,8 +190,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     def cancel_interview(
         self,
         interview_id: int,
-        reason: str
-    ) -> HRInterview:
+        reason: str) -> HRInterview:
         """Cancel interview"""
         interview = self.get_interview_by_id(interview_id)
         interview.status = 'cancelled'
@@ -231,8 +224,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     
     def get_upcoming_interviews_for_reminder(
         self,
-        hours_before: int = 24
-    ) -> List[HRInterview]:
+        hours_before: int = 24) -> List[HRInterview]:
         """Get interviews that need reminders"""
         now = timezone.now()
         target_time = now + timedelta(hours=hours_before)
@@ -244,22 +236,27 @@ class HRInterviewRepository(HRRoundRepositoryPort):
             reminder_sent=False
         ).select_related('application', 'job')
     
-    # ==================== Meeting Sessions ====================
+    #Meeting Sessions
     
     def create_meeting_session(
         self,
         interview_id: int,
         recruiter_id: str,
-        candidate_id: str
-    ) -> MeetingSession:
+        candidate_id: str) -> MeetingSession:
         """Create meeting session"""
         session_id = str(uuid.uuid4())
         room_id = f"hr-{interview_id}-{uuid.uuid4().hex[:8]}"
         
+        from infrastructure.services.hr_round_service import MeetingService
+        zegocloud_token = MeetingService.generate_zegocloud_token(
+            user_id=recruiter_id,
+            room_id=room_id
+        )
         return MeetingSession.objects.create(
             interview_id=interview_id,
             session_id=session_id,
             room_id=room_id,
+            zegocloud_room_id=room_id,
             recruiter_id=recruiter_id,
             candidate_id=candidate_id
         )
@@ -275,8 +272,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     
     def get_meeting_session_by_interview(
         self,
-        interview_id: int
-    ) -> Optional[MeetingSession]:
+        interview_id: int) -> Optional[MeetingSession]:
         """Get meeting session by interview"""
         try:
             return MeetingSession.objects.get(interview_id=interview_id)
@@ -287,8 +283,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         self,
         session_id: str,
         participant_type: str,
-        connected: bool
-    ) -> MeetingSession:
+        connected: bool) -> MeetingSession:
         """Update participant connection status"""
         session = self.get_meeting_session(session_id)
         
@@ -309,21 +304,21 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         session.save()
         return session
     
-    def start_recording(self, session_id: str) -> MeetingSession:
-        """Start recording"""
-        session = self.get_meeting_session(session_id)
-        session.is_recording = True
-        session.recording_started_at = timezone.now()
-        session.save()
-        return session
+    # def start_recording(self, session_id: str) -> MeetingSession:
+    #     """Start recording"""
+    #     session = self.get_meeting_session(session_id)
+    #     session.is_recording = True
+    #     session.recording_started_at = timezone.now()
+    #     session.save()
+    #     return session
     
-    def stop_recording(self, session_id: str) -> MeetingSession:
-        """Stop recording"""
-        session = self.get_meeting_session(session_id)
-        session.is_recording = False
-        session.recording_stopped_at = timezone.now()
-        session.save()
-        return session
+    # def stop_recording(self, session_id: str) -> MeetingSession:
+    #     """Stop recording"""
+    #     session = self.get_meeting_session(session_id)
+    #     session.is_recording = False
+    #     session.recording_stopped_at = timezone.now()
+    #     session.save()
+    #     return session
     
     def end_meeting_session(self, session_id: str) -> MeetingSession:
         """End meeting session"""
@@ -351,7 +346,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         
         return session
     
-    # ==================== Recordings ====================
+    #Recordings
     
     def create_recording(
         self,
@@ -360,8 +355,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         video_key: str,
         duration_seconds: int = None,
         file_size_bytes: int = None,
-        resolution: str = None
-    ) -> InterviewRecording:
+        resolution: str = None) -> InterviewRecording:
         """Create recording record"""
         recording, created = InterviewRecording.objects.update_or_create(
             interview_id=interview_id,
@@ -376,13 +370,23 @@ class HRInterviewRepository(HRRoundRepositoryPort):
             }
         )
         return recording
+    def save_zegocloud_recording(
+        self,
+        session_id: str,
+        recording_url: str,
+        recording_id: str) -> MeetingSession:
+        """Save recording URL from ZegoCloud webhook"""
+        session = self.get_meeting_session(session_id)
+        session.zegocloud_recording_url = recording_url
+        session.zegocloud_recording_id = recording_id
+        session.save()
+        return session
     
     def update_recording_thumbnail(
         self,
         interview_id: int,
         thumbnail_url: str,
-        thumbnail_key: str
-    ) -> InterviewRecording:
+        thumbnail_key: str) -> InterviewRecording:
         """Update recording thumbnail"""
         recording = InterviewRecording.objects.get(interview_id=interview_id)
         recording.thumbnail_url = thumbnail_url
@@ -392,22 +396,20 @@ class HRInterviewRepository(HRRoundRepositoryPort):
     
     def get_recording_by_interview(
         self,
-        interview_id: int
-    ) -> Optional[InterviewRecording]:
+        interview_id: int) -> Optional[InterviewRecording]:
         """Get recording by interview"""
         try:
             return InterviewRecording.objects.get(interview_id=interview_id)
         except InterviewRecording.DoesNotExist:
             return None
     
-    # ==================== Notes ====================
+    #Notes
     
     def create_or_update_notes(
         self,
         interview_id: int,
         recorded_by_id: int,
-        notes_data: Dict
-    ) -> InterviewNotes:
+        notes_data: Dict) -> InterviewNotes:
         """Create or update interview notes"""
         notes, created = InterviewNotes.objects.update_or_create(
             interview_id=interview_id,
@@ -443,40 +445,50 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         notes.save()
         return notes
     
-    # ==================== Chat Messages ====================
+    #Chat Messages
     
-    def save_chat_message(
+    # def save_chat_message(
+    #     self,
+    #     interview_id: int,
+    #     sender_id: str,
+    #     sender_type: str,
+    #     message: str,
+    #     is_system_message: bool = False) -> InterviewChatMessage:
+    #     """Save chat message to database"""
+    #     return InterviewChatMessage.objects.create(
+    #         interview_id=interview_id,
+    #         sender_id=sender_id,
+    #         sender_type=sender_type,
+    #         message=message,
+    #         is_system_message=is_system_message
+    #     )
+    
+    # def get_chat_messages(
+    #     self,
+    #     interview_id: int,
+    #     limit: int = 100) -> List[InterviewChatMessage]:
+    #     """Get chat messages for interview"""
+    #     return InterviewChatMessage.objects.filter(
+    #         interview_id=interview_id
+    #     ).order_by('-sent_at')[:limit]
+    def save_zegocloud_chat_message(
         self,
         interview_id: int,
-        sender_id: str,
-        sender_type: str,
-        message: str,
-        is_system_message: bool = False
-    ) -> InterviewChatMessage:
-        """Save chat message to database"""
+        message_data: dict) -> InterviewChatMessage:
+        """Save chat message from ZegoCloud webhook"""
         return InterviewChatMessage.objects.create(
             interview_id=interview_id,
-            sender_id=sender_id,
-            sender_type=sender_type,
-            message=message,
-            is_system_message=is_system_message
+            zegocloud_message_id=message_data.get('message_id'),
+            sender_id=message_data.get('sender_id'),
+            sender_type=message_data.get('sender_type'),
+            message=message_data.get('message'),
+            message_type=message_data.get('type', 'text')
         )
-    
-    def get_chat_messages(
-        self,
-        interview_id: int,
-        limit: int = 100
-    ) -> List[InterviewChatMessage]:
-        """Get chat messages for interview"""
-        return InterviewChatMessage.objects.filter(
-            interview_id=interview_id
-        ).order_by('-sent_at')[:limit]
-    
     def delete_chat_messages(self, interview_id: int):
         """Delete all chat messages for interview"""
         InterviewChatMessage.objects.filter(interview_id=interview_id).delete()
     
-    # ==================== Results ====================
+    #Results
     
     def create_or_update_result(
         self,
@@ -485,8 +497,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         decision: str,
         decided_by_id: int,
         decision_reason: str = None,
-        next_steps: str = None
-    ) -> InterviewResult:
+        next_steps: str = None) -> InterviewResult:
         """Create or update interview result"""
         result, created = InterviewResult.objects.update_or_create(
             interview_id=interview_id,

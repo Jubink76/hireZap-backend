@@ -3,7 +3,6 @@ from typing import Optional, List
 from core.entities.company import Company
 
 class CompanyRepositoryPort(ABC):
-    """ Interface for company repository operations """
 
     @abstractmethod
     def create_company(self, company:Company) -> Company:

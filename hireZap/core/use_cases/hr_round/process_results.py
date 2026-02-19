@@ -1,29 +1,27 @@
 from typing import Dict
 from django.utils import timezone
-from core.interface.hr_round_repository_port import HRRoundRepositoryPort
+from infrastructure.repositories.hr_round_repository import HRInterviewRepository
 from infrastructure.services.notification_service import NotificationService
+import logging
+logger = logging.getLogger(__name__)
 
 class ProcessInterviewResultUseCase:
-    """Main use case for processing interview results"""
     
     def __init__(self):
         self.finalize_use_case = FinalizeResultUseCase()
         self.move_stage_use_case = MoveToNextStageUseCase()
     
     def finalize_result(self, *args, **kwargs) -> Dict:
-        """Finalize result - delegates to FinalizeResultUseCase"""
         return self.finalize_use_case.execute(*args, **kwargs)
     
     def move_to_next_stage(self, *args, **kwargs) -> Dict:
-        """Move to next stage - delegates to MoveToNextStageUseCase"""
         return self.move_stage_use_case.execute(*args, **kwargs)
     
 
 class FinalizeResultUseCase:
-    """Use case for finalizing interview result"""
     
     def __init__(self):
-        self.repo = HRRoundRepositoryPort()
+        self.repo = HRInterviewRepository()
         self.notification_service = NotificationService()
     
     def execute(
@@ -32,22 +30,7 @@ class FinalizeResultUseCase:
         decision: str,
         decided_by_id: int,
         decision_reason: str = None,
-        next_steps: str = None
-    ) -> Dict:
-        """
-        Finalize interview result and make decision
-        
-        Args:
-            decision: 'qualified' or 'not_qualified'
-        
-        Returns:
-            {
-                'success': bool,
-                'result': InterviewResult,
-                'application': ApplicationModel,
-                'error': str (if failed)
-            }
-        """
+        next_steps: str = None) -> Dict:
         try:
             interview = self.repo.get_interview_by_id(interview_id)
             notes = self.repo.get_notes_by_interview(interview_id)
@@ -78,7 +61,7 @@ class FinalizeResultUseCase:
             final_score = notes.calculated_score or 0
             
             # Check if score meets minimum threshold
-            settings = self.repo.get_settings_by_job(interview.job_id)
+            settings = self.repo.get_settings_by_id(interview.job_id)
             if settings and decision == 'qualified':
                 min_score = settings.minimum_qualifying_score
                 if final_score < min_score:
@@ -116,7 +99,7 @@ class FinalizeResultUseCase:
             from hr_round.tasks import send_hr_interview_result_email_task
             send_hr_interview_result_email_task.delay(interview_id)
             
-            print(f"✅ Result finalized for interview {interview_id}: {decision} - {final_score}/100")
+            logger.info(f" Result finalized for interview {interview_id}: {decision} - {final_score}/100")
             
             return {
                 'success': True,
@@ -125,14 +108,13 @@ class FinalizeResultUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Finalize result error: {str(e)}")
+            logger.error(f" Finalize result error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
             }
     
     def _send_result_notifications(self, interview, result):
-        """Send result notifications"""
         # To candidate
         self.notification_service.send_websocket_notification(
             user_id=interview.application.candidate_id,
@@ -162,27 +144,15 @@ class FinalizeResultUseCase:
 
 
 class MoveToNextStageUseCase:
-    """Use case for moving candidate to next stage"""
     
     def __init__(self):
-        self.repo = HRRoundRepositoryPort()
+        self.repo = HRInterviewRepository()
         self.notification_service = NotificationService()
     
     def execute(
         self,
         interview_id: int,
-        next_stage_id: int = None
-    ) -> Dict:
-        """
-        Move qualified candidate to next selection stage
-        
-        Returns:
-            {
-                'success': bool,
-                'application': ApplicationModel,
-                'error': str (if failed)
-            }
-        """
+        next_stage_id: int = None) -> Dict:
         try:
             interview = self.repo.get_interview_by_id(interview_id)
             result = self.repo.get_result_by_interview(interview_id)
@@ -260,7 +230,7 @@ class MoveToNextStageUseCase:
                 next_stage=next_stage.name
             )
             
-            print(f"✅ Candidate moved to {next_stage.name}")
+            logger.info(f" Candidate moved to {next_stage.name}")
             
             return {
                 'success': True,
@@ -269,7 +239,7 @@ class MoveToNextStageUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Move to next stage error: {str(e)}")
+            logger.error(f" Move to next stage error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)

@@ -11,6 +11,10 @@ from selection_process.models import SelectionProcessModel
 from django.utils import timezone
 from django.db.models import Q
 
+import logging
+import traceback
+logger = logging.getLogger(__name__)
+
 class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
 
     def get_application_by_id(self,application_id:int):
@@ -35,40 +39,37 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             from application.models import ApplicationModel
             from resume_screening.models import ResumeScreeningResult
             from django.utils import timezone
-            import logging
-            
-            logger = logging.getLogger(__name__)
-            logger.info(f"📝 Saving screening results for application {application_id}")
+
+            logger.info(f" Saving screening results for application {application_id}")
             
             application = ApplicationModel.objects.get(id=application_id)
             
-            # ✅ Extract data from result structure
             scores = result.get('scores', {})
             parsed_data = result.get('parsed_data', {})
             ai_analysis = result.get('ai_analysis', {})
             
-            # ✅ 1. Save scores to ApplicationModel
+            #Save scores to ApplicationModel
             application.ats_overall_score = int(scores.get('overall', 0))
             application.ats_skills_score = int(scores.get('skills', 0))
             application.ats_experience_score = int(scores.get('experience', 0))
             application.ats_education_score = int(scores.get('education', 0))
             application.ats_keywords_score = int(scores.get('keywords', 0))
             
-            # ✅ 2. Save decision
+            #Save decision
             application.ats_decision = result.get('decision', 'pending')
             
-            # ✅ 3. Update screening status
+            #Update screening status
             application.screening_status = 'completed'
             
-            # ✅ 4. Update main status if qualified
+            #Update main status if qualified
             if result.get('decision') == 'qualified':
                 application.status = 'qualified'
                 application.current_stage_status = 'qualified'
             
             application.save()
-            logger.info(f"✅ Saved scores to ApplicationModel")
+            logger.info(f"Saved scores to ApplicationModel")
             
-            # ✅ 5. Save detailed results to ResumeScreeningResult
+            #Save detailed results to ResumeScreeningResult
             screening_result, created = ResumeScreeningResult.objects.update_or_create(
                 application=application,
                 defaults={
@@ -96,18 +97,15 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             )
             
             action = "Created" if created else "Updated"
-            logger.info(f"✅ {action} ResumeScreeningResult: {screening_result.id}")
+            logger.info(f" {action} ResumeScreeningResult: {screening_result.id}")
             logger.info(f"   - Matched skills: {screening_result.matching_skills}")
             logger.info(f"   - AI Summary: {screening_result.ai_summary[:100]}...")
             
             return True
             
         except Exception as e:
-            import logging
-            import traceback
-            logger = logging.getLogger(__name__)
-            logger.error(f"❌ Failed to save screening results for application {application_id}: {e}")
-            logger.error(f"❌ Result data: {result}")
+            logger.error(f" Failed to save screening results for application {application_id}: {e}")
+            logger.error(f" Result data: {result}")
             logger.error(traceback.format_exc())
             return False
         
@@ -145,20 +143,20 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
                 'percentage': round(percentage, 2)
             }
             
-            print(f"📊 Sending progress update: {progress_data}")  # Debug log
+            logger.info(f" Sending progress update: {progress_data}")
             
             notification_service.send_websocket_notification(
                 user_id=job.recruiter.id,
                 notification_type='screening_progress',
                 data={
                     'job_id': job.id,
-                    'progress': progress_data  # ✅ Match frontend structure
+                    'progress': progress_data  
                 }
             )
             
         except Exception as e:
             import traceback
-            print(f"❌ Failed to update job progress: {str(e)}")
+            logger.info(f" Failed to update job progress: {str(e)}")
             print(traceback.format_exc())
 
     def get_pending_applications_by_job(self, job_id: int) -> List:
@@ -174,10 +172,8 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             screening_status='completed'
         ).values_list('id', flat=True)
 
-        # Debug logging
         app_list = list(applications)
-        print(f"🔍 Found {len(app_list)} pending applications for job {job_id}")
-        print(f"📋 Application IDs: {app_list}")
+
     
         return app_list
     
@@ -241,7 +237,7 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             screening_status='completed'
         ).count()
         
-        print(f"🔍 Pending applications count for job {job_id}: {count}")
+        logger.info(f" Pending applications count for job {job_id}: {count}")
         
         return count
     

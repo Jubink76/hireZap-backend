@@ -8,7 +8,6 @@ class ConfigureATSUsecase:
         self.ats_repo = ats_repository
 
     def execute(self,job_id:int, config_data:Dict) -> Dict:
-        """Configure or update ats settings for a job"""
         try:
             job = self.job_repo.get_job_by_id(job_id)
             if not job:

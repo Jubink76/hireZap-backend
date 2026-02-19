@@ -10,13 +10,11 @@ from infrastructure.services.storage_factory import StorageFactory
 import requests
 import tempfile
 import os
-
+import logging
+logger = logging.getLogger(__name__)
 
 @shared_task(name='telephonic_round.send_interview_scheduled_email')
 def send_interview_scheduled_email_task(interview_id: int):
-    """
-    Send email notification when interview is scheduled
-    """
     try:
         repo = TelephonicRoundRepository()
         interview = repo.get_interview_by_id(interview_id)
@@ -57,23 +55,15 @@ Good luck!
 Best regards,
 Hiring Team
 """
-        
-        # Send email (implement your email service)
-        # send_email(to=candidate_email, subject=subject, message=message)
-        
         return {'success': True}
         
     except Exception as e:
-        print(f"❌ Email sending failed: {str(e)}")
+        logger.error(f" Email sending failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
 @shared_task(name='telephonic_round.send_interview_reminders')
 def send_interview_reminders_task():
-    """
-    Celery beat task to send reminders for upcoming interviews
-    Run every hour
-    """
     try:
         repo = TelephonicRoundRepository()
         notification_service = NotificationService()
@@ -108,7 +98,7 @@ def send_interview_reminders_task():
         }
         
     except Exception as e:
-        print(f"❌ Reminder task failed: {str(e)}")
+        logger.error(f" Reminder task failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
@@ -137,19 +127,10 @@ Good luck!
 Best regards,
 Hiring Team
 """
-    # send_email(to=candidate_email, subject=subject, message=message)
 
 
 @shared_task(name='telephonic_round.process_interview_recording')
 def process_interview_recording_task(call_session_id: str):
-    """
-    Process interview recording:
-    1. Download recording from storage
-    2. Transcribe using Whisper
-    3. Analyze with AI
-    4. Generate performance scores
-    5. Send notifications
-    """
     try:
         repo = TelephonicRoundRepository()
         transcription_service = TranscriptionService()
@@ -179,7 +160,7 @@ def process_interview_recording_task(call_session_id: str):
             temp_file.close()
             
             # 3. Transcribe audio
-            print(f"📝 Starting transcription for interview {interview.id}...")
+            logger.info(f" Starting transcription for interview {interview.id}...")
             with open(temp_file.name, 'rb') as audio_file:
                 transcription_result = transcription_service.transcribe_audio(audio_file)
             
@@ -197,7 +178,7 @@ def process_interview_recording_task(call_session_id: str):
                 detected_language=transcription_result['language']
             )
             
-            print(f"✅ Transcription completed for interview {interview.id}")
+            logger.info(f" Transcription completed for interview {interview.id}")
             
             # 4. Get job requirements and settings
             settings = repo.get_settings_by_job(interview.job_id)
@@ -222,7 +203,7 @@ def process_interview_recording_task(call_session_id: str):
             }
             
             # 5. Analyze interview
-            print(f"🤖 Starting AI analysis for interview {interview.id}...")
+            logger.info(f" Starting AI analysis for interview {interview.id}...")
             analysis_result = scorer_service.analyze_interview(
                 transcription=transcription_result['text'],
                 job_requirements=job_requirements,
@@ -243,8 +224,8 @@ def process_interview_recording_task(call_session_id: str):
                 analysis=analysis_result['analysis']
             )
             
-            print(f"✅ Analysis completed for interview {interview.id}")
-            print(f"📊 Score: {performance.overall_score}/100 - Decision: {performance.decision}")
+            logger.info(f" Analysis completed for interview {interview.id}")
+            logger.info(f" Score: {performance.overall_score}/100 - Decision: {performance.decision}")
             
             # 7. Update application status
             application = interview.application
@@ -295,13 +276,12 @@ def process_interview_recording_task(call_session_id: str):
                 pass
         
     except Exception as e:
-        print(f"❌ Recording processing failed: {str(e)}")
+        logger.error(f" Recording processing failed: {str(e)}")
         return {'success': False, 'error': str(e)}
 
 
 @shared_task(name='telephonic_round.send_interview_result_email')
 def send_interview_result_email(interview_id: int):
-    """Send interview result email to candidate"""
     try:
         repo = TelephonicRoundRepository()
         interview = repo.get_interview_by_id(interview_id)
@@ -350,10 +330,8 @@ Best regards,
 Hiring Team
 """
         
-        # send_email(to=candidate_email, subject=subject, message=message)
-        
         return {'success': True}
         
     except Exception as e:
-        print(f"❌ Result email failed: {str(e)}")
+        logger.error(f" Result email failed: {str(e)}")
         return {'success': False, 'error': str(e)}

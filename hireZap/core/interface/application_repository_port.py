@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from core.entities.application import Application
 
 class ApplicationRepositoryPort(ABC):
-
     @abstractmethod
     def create_application(self,application:Application) -> Optional[Application]:
         """ Create new application """

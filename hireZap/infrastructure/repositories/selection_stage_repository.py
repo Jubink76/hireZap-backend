@@ -91,8 +91,8 @@ class SelectionStageRepository(SelectionStageRepositoryPort):
     def _model_to_entity(self, model: SelectionStageModel) -> SelectionStageEntity:
         """Convert model to entity"""
         return SelectionStageEntity(
-            id=model.id,  # ✅ Integer ID
-            slug=model.slug,  # ✅ Human-readable slug
+            id=model.id,  
+            slug=model.slug,  # Human-readable slug
             name=model.name,
             description=model.description,
             icon=model.icon,

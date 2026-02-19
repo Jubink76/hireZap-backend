@@ -42,7 +42,6 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
                 'job',
                 'stage',
                 'conducted_by',
-                # ✅ FIX: Use select_related for OneToOne relationships
                 'call_session',
                 'transcription',
                 'performance_result'
@@ -56,7 +55,6 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
                 'application',
                 'job',
                 'stage',
-                # ✅ FIX: Use select_related for OneToOne relationships
                 'call_session',
                 'transcription',
                 'performance_result'
@@ -71,7 +69,6 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             'application__current_stage',
             'job',
             'stage',
-            # ✅ FIX: Use select_related for OneToOne relationships
             'call_session',
             'transcription',
             'performance_result'
@@ -104,8 +101,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
                 'job'
             ).filter(
                 job_id=job_id,
-                current_stage=telephonic_stage,  # ✅ CRITICAL: Filter by current stage
-                # Include both pending and qualified candidates in this stage
+                current_stage=telephonic_stage,  
                 current_stage_status__in=['pending', 'qualified']
             )
 
@@ -226,8 +222,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             interview_id: int,
             session_id: str,
             caller_id: str,
-            callee_id: str
-        ) -> CallSession:
+            callee_id: str) -> CallSession:
         return CallSession.objects.create(
             interview_id=interview_id,
             session_id=session_id,
@@ -246,8 +241,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
     def update_call_session(
         self,
         session_id: str,
-        **kwargs
-    ) -> CallSession:
+        **kwargs) -> CallSession:
         session = CallSession.objects.get(session_id=session_id)
         
         for key, value in kwargs.items():
@@ -262,8 +256,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         recording_url: str,
         recording_key: str,
         duration_seconds: int,
-        recording_size_bytes: int
-    ) -> CallSession:
+        recording_size_bytes: int) -> CallSession:
         session = CallSession.objects.get(session_id=session_id)
         session.ended_at = timezone.now()
         session.recording_url = recording_url
@@ -280,8 +273,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         full_text: str,
         segments: List[Dict],
         detected_language: str = 'en',
-        confidence: Optional[float] = None
-    ) -> InterviewTranscription:
+        confidence: Optional[float] = None) -> InterviewTranscription:
         
         return InterviewTranscription.objects.create(
             interview_id=interview_id,
@@ -296,8 +288,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         self,
         interview_id: int,
         status: str,
-        error_message: Optional[str] = None
-    ) -> InterviewTranscription:
+        error_message: Optional[str] = None) -> InterviewTranscription:
         transcription = InterviewTranscription.objects.get(interview_id=interview_id)
         transcription.processing_status = status
         if error_message:
@@ -310,8 +301,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         interview_id: int,
         scores: Dict,
         decision: str,
-        analysis: Dict
-    ) -> InterviewPerformanceResult:
+        analysis: Dict) -> InterviewPerformanceResult:
         result, created = InterviewPerformanceResult.objects.update_or_create(
             interview_id=interview_id,
             defaults={
@@ -340,8 +330,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
         manual_score: int,
         manual_decision: str,
         override_reason: str,
-        overridden_by_id: int
-    ) -> InterviewPerformanceResult:
+        overridden_by_id: int) -> InterviewPerformanceResult:
         result = InterviewPerformanceResult.objects.get(interview_id=interview_id)
         result.manual_score_override = manual_score
         result.manual_decision_override = manual_decision
@@ -389,7 +378,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             'average_score': round(avg_score, 2)
         }
     
-    def move_interviews_to_next_stage(self,interview_ids: List[int],feedback: str = '') -> int:
+    def move_to_next_stage(self,interview_ids: List[int],feedback: str = '') -> int:
         from application.models import ApplicationStageHistory
         from selection_process.models import SelectionProcessModel
         

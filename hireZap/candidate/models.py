@@ -3,10 +3,6 @@ from django.conf import settings
 from  django.core.validators import MinValueValidator, MaxValueValidator
 
 class CandidateProfile(models.Model):
-    """
-        Candidate profile with OneToOne relationship to User
-        user_id is the primary key, so candidate_id = user_id
-    """
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -31,7 +27,6 @@ class CandidateProfile(models.Model):
         return f"{self.user.full_name}'s profile "
     
 class CandidateEducation(models.Model):
-    """Education records - candidate is the user_id"""
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
@@ -54,7 +49,6 @@ class CandidateEducation(models.Model):
         return f"{self.degree} at {self.institution}"
 
 class CandidateExperience(models.Model):
-    """Work experience records - candidate is the user_id"""
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,
@@ -111,7 +105,6 @@ class CandidateSkill(models.Model):
         return f"{self.skill_name} - {self.proficiency}/5 stars"
     
 class CandidateCertification(models.Model):
-    """Certifications - candidate is the user_id"""
     candidate = models.ForeignKey(
         CandidateProfile,
         on_delete=models.CASCADE,

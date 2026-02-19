@@ -157,6 +157,9 @@ class MeetingSession(models.Model):
     session_id = models.CharField(max_length=100, unique=True, db_index=True)
     room_id = models.CharField(max_length=100, db_index=True)
     
+    zegocloud_room_id = models.CharField(max_length=200, blank=True)  
+    zegocloud_session_id = models.CharField(max_length=200, blank=True)
+
     # Participants
     recruiter_id = models.CharField(max_length=100)
     candidate_id = models.CharField(max_length=100)
@@ -169,6 +172,9 @@ class MeetingSession(models.Model):
     is_recording = models.BooleanField(default=False)
     recording_started_at = models.DateTimeField(null=True, blank=True)
     recording_stopped_at = models.DateTimeField(null=True, blank=True)
+
+    zegocloud_recording_url = models.URLField(max_length=1024, blank=True, null=True)
+    zegocloud_recording_id = models.CharField(max_length=200, blank=True, null=True)
     
     # Connection Quality
     connection_quality = models.CharField(
@@ -420,6 +426,8 @@ class InterviewChatMessage(models.Model):
         related_name='chat_messages'
     )
     
+    zegocloud_message_id = models.CharField(max_length=200, blank=True)
+
     sender_id = models.CharField(max_length=100)  # User ID
     sender_type = models.CharField(
         max_length=20,
@@ -430,6 +438,8 @@ class InterviewChatMessage(models.Model):
     )
     
     message = models.TextField()
+    
+    message_type = models.CharField(max_length=20, default='text')
     
     # Message Metadata
     is_system_message = models.BooleanField(default=False)

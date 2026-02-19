@@ -85,7 +85,7 @@ class AuthUserRepository(AuthRepositoryPort):
             full_name=user.full_name,
             email=user.email,
             phone=user.phone,
-            password=None,  # Don't expose password
+            password=None, 
             role=user.role,
             profile_image_url=user.profile_image_url,
             location=user.location,

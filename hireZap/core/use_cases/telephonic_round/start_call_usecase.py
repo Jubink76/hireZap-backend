@@ -9,39 +9,19 @@ from infrastructure.services.notification_service import NotificationService
 
 
 class StartCallUseCase:
-    """
-    Start a telephonic interview call
-    """
     
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.notification_service = notification_service
     
     def execute(
         self,
         interview_id: int,
-        recruiter_id: int
-    ) -> Dict:
-        """
-        Start interview call session
-        
-        Args:
-            interview_id: Interview ID
-            recruiter_id: ID of recruiter conducting the interview
-        
-        Returns:
-            {
-                'success': bool,
-                'session_id': str,
-                'interview_id': int,
-                'candidate_id': int,
-                'error': str (if failed)
-            }
-        """
+        recruiter_id: int) -> Dict:
         
         # 1. Get interview
         interview = self.repository.get_interview_by_id(interview_id)
@@ -119,7 +99,6 @@ class StartCallUseCase:
         }
     
     def _notify_candidate_call_started(self, interview, session_id):
-        """Notify candidate that call has started"""
         self.notification_service.send_websocket_notification(
             user_id=interview.application.candidate_id,
             notification_type='call_started',
@@ -133,7 +112,6 @@ class StartCallUseCase:
         )
     
     def _notify_recruiter_call_started(self, interview, session_id, recruiter_id):
-        """Notify recruiter that call has started"""
         self.notification_service.send_websocket_notification(
             user_id=recruiter_id,
             notification_type='call_started',

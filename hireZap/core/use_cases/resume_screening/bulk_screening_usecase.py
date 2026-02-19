@@ -3,7 +3,6 @@ from core.interface.resume_screening_repository_port import ResumeScreeningRepos
 from core.interface.ats_configuration_repository_port import ATSConfigurationRepositoryPort
 
 class StartBulkScreeningUseCase:
-    """Use case to start bulk screening for a job"""
     
     def __init__(
         self,
@@ -14,7 +13,6 @@ class StartBulkScreeningUseCase:
         self.ats_repo = ats_repo
     
     def execute(self, job_id: int) -> Dict:
-        """Start bulk screening"""
         
         # 1. Verify job exists
         job = self.screening_repo.get_job_by_id(job_id)

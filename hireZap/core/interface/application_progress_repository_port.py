@@ -3,8 +3,6 @@ from typing import Dict, List, Optional
 from core.entities.selection_stage import SelectionStage
 
 class ApplicationProgressRepositoryPort(ABC):
-    """Port for application progress repository"""
-    
     @abstractmethod
     def get_application_by_id(self, application_id: int, candidate_id: int):
         """Get application by ID ensuring candidate ownership"""
@@ -23,6 +21,11 @@ class ApplicationProgressRepositoryPort(ABC):
     @abstractmethod
     def get_telephonic_interview_progress(self, application_id: int) -> Optional[Dict]:
         """Get telephonic interview progress for application"""
+        pass
+
+    @abstractmethod
+    def get_hr_interview_progress(self, application_id: int) -> Optional[Dict]:
+        """Get HR interview progress for application"""
         pass
     
     @abstractmethod

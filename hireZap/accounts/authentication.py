@@ -6,9 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 class CookieJWTAuthentication(JWTAuthentication):
-    """
-    Custom JWT authentication that reads the token from cookies instead of headers
-    """
     def authenticate(self, request):
         # Try to get token from cookie
         raw_token = request.COOKIES.get('access')

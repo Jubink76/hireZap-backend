@@ -1,46 +1,23 @@
-"""
-core/use_cases/telephonic_round/move_to_next_stage_usecase.py
-"""
 from typing import Dict, List
 from core.interface.telephonic_round_repository_port import TelephonicRoundRepositoryPort
 from infrastructure.services.notification_service import NotificationService
-
+import logging
+logger = logging.getLogger(__name__)
 
 class MoveToNextStageUseCase:
-    """
-    Move qualified candidates to the next interview stage
-    Similar to resume screening's move to next stage
-    """
     
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.notification_service = notification_service
     
     def execute(
         self,
         interview_ids: List[int],
-        feedback: str = 'Passed telephonic round'
-    ) -> Dict:
-        """
-        Move candidates to next stage
-        
-        Args:
-            interview_ids: List of interview IDs to move
-            feedback: Feedback message for stage transition
-        
-        Returns:
-            {
-                'success': bool,
-                'moved_count': int,
-                'failed_count': int,
-                'errors': list,
-                'next_stage': str
-            }
-        """
+        feedback: str = 'Passed telephonic round') -> Dict:
         
         if not interview_ids:
             return {
@@ -89,9 +66,7 @@ class MoveToNextStageUseCase:
             }
     
     def _validate_interviews(self, interview_ids: List[int]) -> Dict:
-        """
-        Validate that all interviews can be moved to next stage
-        """
+        
         invalid_interviews = []
         
         for interview_id in interview_ids:
@@ -140,7 +115,6 @@ class MoveToNextStageUseCase:
         return {'valid': True}
     
     def _get_next_stage_name(self, sample_interview_id: int) -> str:
-        """Get name of next stage"""
         try:
             interview = self.repository.get_interview_by_id(sample_interview_id)
             if interview and interview.application.current_stage:
@@ -152,9 +126,7 @@ class MoveToNextStageUseCase:
     def _send_stage_transition_notifications(
         self,
         interview_ids: List[int],
-        next_stage_name: str
-    ):
-        """Send notifications to candidates about stage progression"""
+        next_stage_name: str):
         
         for interview_id in interview_ids:
             try:
@@ -180,10 +152,9 @@ class MoveToNextStageUseCase:
                 self._send_progression_email(interview, next_stage_name)
                 
             except Exception as e:
-                print(f"❌ Failed to notify candidate for interview {interview_id}: {str(e)}")
+                logger.error(f" Failed to notify candidate for interview {interview_id}: {str(e)}")
     
     def _send_progression_email(self, interview, next_stage_name: str):
-        """Trigger email about stage progression"""
         from telephonic_round.tasks import send_stage_progression_email
         
         send_stage_progression_email.apply_async(

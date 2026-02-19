@@ -70,7 +70,7 @@ class JobSelectionProcessRepository(JobSelectionProcessRepositoryPort):
                     requires_premium=stage.requires_premium,
                     tier=stage.tier,
                     is_default=stage.is_default,
-                    order=process.order,  # Use order from job_selection_process
+                    order=process.order,  
                     is_active=stage.is_active,
                     created_at=stage.created_at,
                     updated_at=stage.updated_at

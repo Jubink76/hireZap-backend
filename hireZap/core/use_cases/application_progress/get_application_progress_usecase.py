@@ -1,23 +1,14 @@
 from typing import Dict
 from core.interface.application_progress_repository_port import ApplicationProgressRepositoryPort
+import logging
+logger = logging.getLogger(__name__)
 
 class GetApplicationProgressUseCase:
-    """Use case for getting application stage progress"""
     
     def __init__(self, repository: ApplicationProgressRepositoryPort):
         self.repository = repository
     
     def execute(self, application_id: int, candidate_id: int) -> Dict:
-        """
-        Execute the use case to get application progress
-        
-        Args:
-            application_id: ID of the application
-            candidate_id: ID of the candidate (to verify ownership)
-            
-        Returns:
-            Dictionary containing application progress data
-        """
         try:
             # Get application with related data
             application = self.repository.get_application_by_id(application_id, candidate_id)
@@ -29,6 +20,7 @@ class GetApplicationProgressUseCase:
                 return {
                     'success': True, 
                     'application_id': application.id,
+                    'candidate_id': application.candidate_id,
                     'job_id': application.job_id,
                     'job_title': application.job.job_title,
                     'company_name': application.job.company.company_name if application.job.company else None,
@@ -66,6 +58,7 @@ class GetApplicationProgressUseCase:
             return {
                 'success': True,
                 'application_id': application.id,
+                'candidate_id': application.candidate_id,
                 'job_id': application.job_id,
                 'job_title': application.job.job_title,
                 'company_name': application.job.company.company_name if application.job.company else None,
@@ -88,17 +81,6 @@ class GetApplicationProgressUseCase:
             }
     
     def _get_stage_progress(self, stage, application, application_id: int) -> Dict:
-        """
-        Get progress data for a specific stage
-        
-        Args:
-            stage: The SelectionStageModel object
-            application: The ApplicationModel object
-            application_id: ID of the application
-            
-        Returns:
-            Dictionary containing stage progress data
-        """
         # Base progress data
         progress_data = {
             'stage_id': stage.id,
@@ -113,7 +95,9 @@ class GetApplicationProgressUseCase:
             'completed_at': None,
             'scheduled_at': None,
             'interview_id': None,
-            'session_id': None
+            'session_id': None,
+            'session_started_at': None,
+            'zegocloud_config': None,
         }
         
         # Check if this stage matches the current stage
@@ -164,12 +148,29 @@ class GetApplicationProgressUseCase:
                 elif is_current_stage:
                     progress_data['status'] = 'in_progress'
             except Exception as e:
-                print(f"Error getting telephonic interview progress: {e}")
+                logger.error(f"Error getting telephonic interview progress: {e}")
                 import traceback
                 traceback.print_exc()
                 if is_current_stage:
                     progress_data['status'] = 'in_progress'
-        
+
+        elif stage.slug == 'hr-round':
+            try:
+                hr_data = self.repository.get_hr_interview_progress(application_id)
+                if hr_data:
+                    # Update with HR interview data
+                    progress_data.update(hr_data)
+                    logger.info(f" HR interview data found: status={hr_data.get('status')}, scheduled_at={hr_data.get('scheduled_at')}")
+                elif is_current_stage:
+                    progress_data['status'] = 'in_progress'
+                    logger.info(f" No HR interview data, but it's current stage")
+            except Exception as e:
+                logger.error(f" Error getting HR interview progress: {e}")
+                import traceback
+                traceback.print_exc()
+                if is_current_stage:
+                    progress_data['status'] = 'in_progress'
+
         # For other stages, check if current and set status accordingly
         elif is_current_stage:
             if application.current_stage_status == 'qualified':

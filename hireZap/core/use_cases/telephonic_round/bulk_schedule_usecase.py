@@ -8,15 +8,11 @@ from infrastructure.services.notification_service import NotificationService
 
 
 class BulkScheduleUseCase:
-    """
-    Bulk schedule multiple interviews at once
-    """
-    
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.notification_service = notification_service
     
@@ -24,24 +20,7 @@ class BulkScheduleUseCase:
         self,
         schedules: List[Dict],
         send_notifications: bool = True,
-        send_emails: bool = True
-    ) -> Dict:
-        """
-        Bulk schedule interviews
-        
-        Args:
-            schedules: List of schedule data
-            [
-                {
-                    'application_id': 1,
-                    'scheduled_at': datetime,
-                    'duration': 30,
-                    'timezone': 'America/New_York',
-                    'notes': ''
-                },
-                ...
-            ]
-        """
+        send_emails: bool = True) -> Dict:
         
         scheduled_count = 0
         failed_count = 0

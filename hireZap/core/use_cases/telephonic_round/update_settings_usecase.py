@@ -7,8 +7,6 @@ from core.interface.telephonic_round_repository_port import TelephonicRoundRepos
 
 class UpdateSettingsUseCase:
     
-    """Update telephonic round settings for a job"""
-    
     def __init__(self, repository: TelephonicRoundRepositoryPort):
         self.repository = repository
     
@@ -55,7 +53,6 @@ class UpdateSettingsUseCase:
             }
     
     def _serialize_settings(self, settings) -> Dict:
-        """Convert settings model to dictionary"""
         return {
             'id': settings.id,
             'job_id': settings.job_id,

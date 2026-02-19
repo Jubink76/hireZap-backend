@@ -7,15 +7,11 @@ from infrastructure.services.notification_service import NotificationService
 
 
 class ManualScoreOverrideUseCase:
-    """
-    Override AI-generated score with manual recruiter score
-    """
     
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
         self.repository = repository
         self.notification_service = notification_service
     
@@ -25,27 +21,7 @@ class ManualScoreOverrideUseCase:
         manual_score: int,
         manual_decision: str,
         override_reason: str,
-        overridden_by_id: int
-    ) -> Dict:
-        """
-        Override AI score with manual evaluation
-        
-        Args:
-            interview_id: Interview ID
-            manual_score: Manual score (0-100)
-            manual_decision: Manual decision ('qualified' or 'not_qualified')
-            override_reason: Reason for override
-            overridden_by_id: ID of user making the override
-        
-        Returns:
-            {
-                'success': bool,
-                'interview_id': int,
-                'ai_score': int,
-                'manual_score': int,
-                'final_decision': str
-            }
-        """
+        overridden_by_id: int) -> Dict:
         
         # 1. Get interview and performance result
         interview = self.repository.get_interview_by_id(interview_id)
@@ -118,7 +94,6 @@ class ManualScoreOverrideUseCase:
         }
     
     def _update_application_status(self, interview, manual_decision: str):
-        """Update application status based on manual decision"""
         application = interview.application
         
         if manual_decision == 'qualified':
@@ -137,9 +112,7 @@ class ManualScoreOverrideUseCase:
         new_score: int,
         original_decision: str,
         new_decision: str,
-        overridden_by_id: int
-    ):
-        """Send notifications about score override"""
+        overridden_by_id: int):
         
         # Notify recruiter who conducted the interview (if different from overrider)
         if interview.conducted_by_id and interview.conducted_by_id != overridden_by_id:

@@ -8,26 +8,12 @@ from google.genai import types
 from faster_whisper import WhisperModel
 import tempfile
 import os
-
+import logging
+logger = logging.getLogger(__name__)
 
 class TranscriptionService:
-    """
-    FREE audio transcription using faster-whisper (local processing)
-    No API costs - runs on your machine!
-    """
     
     def __init__(self):
-        """
-        Initialize Whisper model
-        
-        Models available (in order of accuracy vs speed):
-        - tiny: Fastest, least accurate (~1GB RAM)
-        - base: Good balance (~1GB RAM)
-        - small: Better accuracy (~2GB RAM)
-        - medium: Very good accuracy (~5GB RAM)
-        - large-v2: Best accuracy (~10GB RAM)
-        - large-v3: Latest, best accuracy (~10GB RAM)
-        """
         # Use 'base' for good balance of speed and accuracy
         # Change to 'small' or 'medium' for better accuracy
         # Use 'tiny' if you have limited RAM/CPU
@@ -38,8 +24,6 @@ class TranscriptionService:
         self.device = getattr(settings, 'WHISPER_DEVICE', 'cpu')
         self.compute_type = 'int8' if self.device == 'cpu' else 'float16'
         
-        print(f"🎤 Loading Whisper model: {self.model_size} on {self.device}...")
-        
         # Load model (downloads on first use, then cached)
         self.model = WhisperModel(
             self.model_size,
@@ -48,36 +32,19 @@ class TranscriptionService:
             download_root=None  # Uses default cache directory
         )
         
-        print(f"✅ Whisper model loaded successfully!")
+        logger.info(f" Whisper model loaded successfully!")
     
     def transcribe_audio(
         self,
         audio_file: BinaryIO,
-        language: str = "en"
-    ) -> Dict:
-        """
-        Transcribe audio file using local Whisper model (FREE!)
-        
-        Args:
-            audio_file: Audio file object (WAV, MP3, M4A, etc.)
-            language: Language code (en, es, fr, etc.)
-        
-        Returns:
-            {
-                'success': bool,
-                'text': str,
-                'segments': list,
-                'language': str,
-                'duration': float
-            }
-        """
+        language: str = "en") -> Dict:
         temp_path = None
         
         try:
             # Save uploaded file to temporary location
             temp_path = self._save_temp_file(audio_file)
             
-            print(f"📝 Starting transcription: {temp_path}")
+            logger.info(f" Starting transcription: {temp_path}")
             
             # Transcribe with faster-whisper
             segments, info = self.model.transcribe(
@@ -102,9 +69,9 @@ class TranscriptionService:
                     'text': segment.text.strip()
                 })
             
-            print(f"✅ Transcription completed: {len(full_text)} characters")
-            print(f"📊 Language: {info.language} (probability: {info.language_probability:.2f})")
-            print(f"⏱️ Duration: {info.duration:.2f} seconds")
+            logger.info(f" Transcription completed: {len(full_text)} characters")
+            logger.info(f" Language: {info.language} (probability: {info.language_probability:.2f})")
+            logger.info(f" Duration: {info.duration:.2f} seconds")
             
             return {
                 'success': True,
@@ -116,7 +83,7 @@ class TranscriptionService:
             }
             
         except Exception as e:
-            print(f"❌ Transcription Error: {str(e)}")
+            logger.error(f" Transcription Error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -159,23 +126,7 @@ class InterviewScorerService:
         self,
         transcription: str,
         job_requirements: Dict,
-        settings: Dict
-    ) -> Dict:
-        """
-        Analyze interview transcription and generate scores
-        
-        Args:
-            transcription: Full interview text
-            job_requirements: Job details and requirements
-            settings: Telephonic round settings with weights
-        
-        Returns:
-            {
-                'scores': {...},
-                'decision': 'qualified' | 'not_qualified',
-                'analysis': {...}
-            }
-        """
+        settings: Dict) -> Dict:
         try:
             # Build prompt for Gemini
             prompt = self._build_analysis_prompt(
@@ -244,7 +195,7 @@ class InterviewScorerService:
             }
             
         except Exception as e:
-            print(f"❌ Interview Analysis Error: {str(e)}")
+            logger.error(f" Interview Analysis Error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)

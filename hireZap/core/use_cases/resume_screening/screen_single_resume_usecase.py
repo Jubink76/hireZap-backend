@@ -6,7 +6,6 @@ from infrastructure.services.resume_screening_service import ResumeScreeningServ
 
 
 class ScreenResumeUseCase:
-    """Use case for screening a single resume"""
     
     def __init__(
         self,
@@ -20,7 +19,6 @@ class ScreenResumeUseCase:
         self.screening_service = ResumeScreeningService()
     
     def execute(self, application_id: int) -> Dict:
-        """Execute resume screening for one application"""
         
         # 1. Get application
         application = self.screening_repo.get_application_by_id(application_id)
@@ -76,7 +74,6 @@ class ScreenResumeUseCase:
         }
     
     def _build_ats_config_dict(self, ats_config, job) -> Dict:
-        """Build ATS config dictionary"""
         if ats_config:
             return {
                 'skills_weight': ats_config.skills_weight,
@@ -110,7 +107,6 @@ class ScreenResumeUseCase:
             }
     
     def _send_notifications(self, application, result):
-        """Send all notifications"""
         # Candidate notification
         self.notification_service.send_websocket_notification(
             user_id=application.candidate.user.id,
