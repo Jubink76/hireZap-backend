@@ -2,8 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class Company(models.Model):
-    """Company model for storing recruiter company information"""
-    
+
     VERIFICATION_STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('verified', 'Verified'),

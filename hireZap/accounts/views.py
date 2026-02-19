@@ -159,7 +159,7 @@ class GithubAuthView(APIView):
         if not code:
             return Response({'detail': 'code required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1️⃣ Exchange code for access token
+        # Exchange code for access token
         token_url = 'https://github.com/login/oauth/access_token'
         payload = {
             'client_id': settings.SOCIAL_AUTH_GITHUB_CLIENT_ID,
@@ -176,7 +176,7 @@ class GithubAuthView(APIView):
         if not access_token:
             return Response({'detail': 'No access token received from GitHub'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2️⃣ Get user info from GitHub
+        # Get user info from GitHub
         user_resp = requests.get('https://api.github.com/user', headers={'Authorization': f'token {access_token}'})
         if user_resp.status_code != 200:
             return Response({'detail': 'Failed to fetch GitHub user info'}, status=status.HTTP_400_BAD_REQUEST)
@@ -196,7 +196,7 @@ class GithubAuthView(APIView):
         if not email:
             return Response({'detail': 'GitHub account has no verified email'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3️⃣ Check existing user or create new
+        # Check existing user or create new
         user = User.objects.filter(email=email).first()
         if user:
             if user.role != role:
@@ -221,7 +221,7 @@ class GithubAuthView(APIView):
             )
             created = True
 
-        # 4️⃣ Generate tokens & set cookies
+        # Generate tokens & set cookies
         tokens = get_tokens_for_user(user)
         data = {
             'user': {

@@ -9,10 +9,6 @@ from selection_process.models import SelectionProcessModel
 class JobRepository(JobRepositoryPort):
 
     def _get_base_queryset(self):
-        """
-        Base queryset with stage annotations.
-        This adds has_configured_stages and configured_stages_count to all queries.
-        """
         return JobModel.objects.annotate(
             has_configured_stages=Exists(
                 SelectionProcessModel.objects.filter(
@@ -57,7 +53,6 @@ class JobRepository(JobRepositoryPort):
     def create_job(self, job: Job) -> Optional[Job]:
         """Create a new job posting"""
         try:
-            # Parse skills_required if it's a JSON string
             skills = job.skills_required
             if isinstance(skills, str):
                 try:

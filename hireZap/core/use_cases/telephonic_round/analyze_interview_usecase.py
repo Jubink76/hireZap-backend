@@ -8,21 +8,19 @@ from infrastructure.services.telephonic_service import (
     InterviewScorerService
 )
 from infrastructure.services.notification_service import NotificationService
-
+import time
+from django.utils import timezone
+import logging
+logger = logging.getLogger(__name__)
 
 class AnalyzeInterviewUseCase:
-    """
-    Analyze interview recording and generate performance scores
-    This is the core AI processing use case
-    """
-    
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
         transcription_service: TranscriptionService,
         scorer_service: InterviewScorerService,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.transcription_service = transcription_service
         self.scorer_service = scorer_service
@@ -31,32 +29,8 @@ class AnalyzeInterviewUseCase:
     def execute(
         self,
         interview_id: int,
-        audio_file_path: str
-    ) -> Dict:
-        """
-        Complete analysis pipeline:
-        1. Transcribe audio
-        2. Analyze with AI
-        3. Generate scores
-        4. Save results
-        5. Send notifications
-        
-        Args:
-            interview_id: Interview ID
-            audio_file_path: Path to audio file
-        
-        Returns:
-            {
-                'success': bool,
-                'interview_id': int,
-                'overall_score': int,
-                'decision': str,
-                'transcription': str,
-                'analysis': dict
-            }
-        """
-        
-        import time
+        audio_file_path: str) -> Dict:
+
         start_time = time.time()
         
         # 1. Get interview
@@ -69,13 +43,13 @@ class AnalyzeInterviewUseCase:
             }
         
         # 2. Get settings
-        settings = self.repository.get_settings_by_id(interview.job_id)
+        settings = self.repository.get_settings_by_job(interview.job_id)
         if not settings:
             settings = self.repository.create_default_settings(interview.job_id)
         
         try:
             # 3. Transcribe audio with Whisper
-            print(f"📝 Starting transcription for interview {interview_id}...")
+            logger.info(f" Starting transcription for interview {interview_id}...")
             
             with open(audio_file_path, 'rb') as audio_file:
                 transcription_result = self.transcription_service.transcribe_audio(
@@ -98,7 +72,7 @@ class AnalyzeInterviewUseCase:
                 confidence=transcription_result.get('confidence')
             )
             
-            print(f"✅ Transcription completed: {len(transcription_result['text'])} characters")
+            logger.error(f" Transcription completed: {len(transcription_result['text'])} characters")
             
             # 4. Prepare job requirements
             job_requirements = {
@@ -120,7 +94,7 @@ class AnalyzeInterviewUseCase:
             }
             
             # 6. Analyze with AI
-            print(f"🤖 Starting AI analysis for interview {interview_id}...")
+            logger.info(f" Starting AI analysis for interview {interview_id}...")
             
             analysis_result = self.scorer_service.analyze_interview(
                 transcription=transcription_result['text'],
@@ -134,9 +108,9 @@ class AnalyzeInterviewUseCase:
                     'error': f"AI analysis failed: {analysis_result.get('error')}"
                 }
             
-            print(f"✅ AI analysis completed")
-            print(f"📊 Overall Score: {analysis_result['scores']['overall']}/100")
-            print(f"✓ Decision: {analysis_result['decision']}")
+            logger.info(f" AI analysis completed")
+            logger.info(f" Overall Score: {analysis_result['scores']['overall']}/100")
+            logger.info(f" Decision: {analysis_result['decision']}")
             
             # 7. Save performance results
             performance_result = self.repository.save_performance_result(
@@ -145,7 +119,7 @@ class AnalyzeInterviewUseCase:
                 decision=analysis_result['decision'],
                 analysis=analysis_result['analysis']
             )
-            
+            logger.info(f"performance result is {performance_result.decision}")
             # 8. Update application status based on decision
             self._update_application_status(
                 interview=interview,
@@ -176,7 +150,7 @@ class AnalyzeInterviewUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Analysis failed for interview {interview_id}: {str(e)}")
+            logger.error(f" Analysis failed for interview {interview_id}: {str(e)}")
             
             # Update interview status to failed
             self.repository.update_interview_status(
@@ -190,15 +164,25 @@ class AnalyzeInterviewUseCase:
             }
     
     def _update_application_status(self, interview, decision: str):
-        """Update application status based on interview decision"""
         application = interview.application
         
         if decision == 'qualified':
             application.current_stage_status = 'qualified'
             application.status = 'qualified'
         else:
+            from application.models import ApplicationStageHistory
+            current_stage = application.current_stage_id
+            ApplicationStageHistory.objects.filter(
+                application = application,
+                stage = current_stage
+            ).update(
+                status='rejected',
+                completed_at=timezone.now(),
+                feedback = 'Telephonic Round failed'
+            )
             application.current_stage_status = 'rejected'
             application.status = 'rejected'
+            
         
         application.save()
     

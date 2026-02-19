@@ -42,5 +42,4 @@ class SubscriptionPlan:
         }
     
     def is_free(self) -> bool:
-        """Check if plan is free"""
         return self.price == 0 or self.is_free

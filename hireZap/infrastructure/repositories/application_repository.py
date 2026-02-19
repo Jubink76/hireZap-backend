@@ -143,7 +143,7 @@ class ApplicationRepository(ApplicationRepositoryPort):
             queryset = ApplicationModel.objects.filter(candidate_id=candidate_id)
             
             if not include_drafts:
-                queryset = queryset.filter(is_draft=False)  # Changed from exclude(status='draft')
+                queryset = queryset.filter(is_draft=False)  
             
             app_models = queryset.select_related('job', 'candidate').order_by('-created_at')
             
@@ -163,7 +163,7 @@ class ApplicationRepository(ApplicationRepositoryPort):
     def get_applications_by_job(self, job_id: int) -> List[Application]:
         """Get all applications for a job"""
         try:
-            # ✅ ADD select_related to load screening_result
+            
             app_models = ApplicationModel.objects.filter(
                 job_id=job_id,
                 is_draft=False
@@ -172,7 +172,7 @@ class ApplicationRepository(ApplicationRepositoryPort):
                 'candidate__user',
                 'job',
                 'job__company',
-                'screening_result',  # ✅ CRITICAL: Load screening details
+                'screening_result',  
                 'current_stage'
             ).order_by('-created_at')
             
@@ -185,7 +185,6 @@ class ApplicationRepository(ApplicationRepositoryPort):
     def get_applications_by_status(self, job_id: int, status: str) -> List[Application]:
         """Get applications by status for a specific job"""
         try:
-            # ✅ ADD select_related here too
             app_models = ApplicationModel.objects.filter(
                 job_id=job_id,
                 status=status,
@@ -195,7 +194,7 @@ class ApplicationRepository(ApplicationRepositoryPort):
                 'candidate__user',
                 'job',
                 'job__company',
-                'screening_result',  # ✅ CRITICAL: Load screening details
+                'screening_result',  
                 'current_stage'
             ).order_by('-created_at')
             
@@ -210,7 +209,6 @@ class ApplicationRepository(ApplicationRepositoryPort):
         try:
             app_model = ApplicationModel.objects.get(id=application_id)
             
-            # If converting from draft to submitted, set submitted_at
             if 'is_draft' in application_data and not application_data['is_draft'] and app_model.is_draft:
                 application_data['submitted_at'] = timezone.now()
             

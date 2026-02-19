@@ -1,16 +1,25 @@
 from typing import Dict
+from django.conf import settings
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 from infrastructure.services.notification_service import NotificationService
 from infrastructure.services.hr_round_service import MeetingService
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ConductInterviewUseCase:
-    """Main use case for conducting interviews"""
     
-    def __init__(self):
-        self.start_use_case = StartMeetingUseCase()
-        self.join_use_case = JoinMeetingUseCase()
-        self.end_use_case = EndMeetingUseCase()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService,
+        meeting_service: MeetingService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
+        self.meeting_service = meeting_service
+        self.start_use_case = StartMeetingUseCase(repository, notification_service)
+        self.join_use_case = JoinMeetingUseCase(repository, notification_service, meeting_service)
+        self.end_use_case = EndMeetingUseCase(repository, notification_service)
     
     def start_interview(self, interview_id: int, recruiter_id: int) -> Dict:
         """Start interview - delegates to StartMeetingUseCase"""
@@ -24,25 +33,18 @@ class ConductInterviewUseCase:
         """End interview - delegates to EndMeetingUseCase"""
         return self.end_use_case.execute(session_id, ended_by_id)
     
+
 class StartMeetingUseCase:
-    """Use case for starting a meeting"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
-        self.notification_service = NotificationService()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
     
     def execute(self, interview_id: int, recruiter_id: int) -> Dict:
-        """
-        Start interview session
-        
-        Returns:
-            {
-                'success': bool,
-                'session': MeetingSession,
-                'interview': HRInterview,
-                'error': str (if failed)
-            }
-        """
         try:
             interview = self.repo.get_interview_by_id(interview_id)
             
@@ -63,11 +65,22 @@ class StartMeetingUseCase:
             # Check if session already exists
             existing_session = self.repo.get_meeting_session_by_interview(interview_id)
             if existing_session and not existing_session.ended_at:
+                recruiter_token = MeetingService.generate_zegocloud_token(
+                    user_id=str(recruiter_id),
+                    room_id=existing_session.room_id
+                )
                 return {
                     'success': True,
                     'session': existing_session,
                     'interview': interview,
-                    'message': 'Session already active'
+                    'message': 'Session already active',
+                    'zegocloud_config': {
+                        'app_id': settings.ZEGOCLOUD_APP_ID,
+                        'room_id': existing_session.room_id,
+                        'token': recruiter_token,
+                        'user_id': str(recruiter_id),
+                        'user_name': 'Recruiter'
+                    }
                 }
             
             # Create meeting session
@@ -80,6 +93,16 @@ class StartMeetingUseCase:
             # Update interview status
             self.repo.update_interview_status(interview_id, 'in_progress')
             
+            recruiter_token = MeetingService.generate_zegocloud_token(
+                user_id=str(recruiter_id),
+                room_id=session.room_id
+            )
+            
+            candidate_token = MeetingService.generate_zegocloud_token(
+                user_id=str(interview.application.candidate_id),
+                room_id=session.room_id
+            )
+            
             # Send notification to candidate
             self.notification_service.send_websocket_notification(
                 user_id=interview.application.candidate_id,
@@ -87,49 +110,50 @@ class StartMeetingUseCase:
                 data={
                     'interview_id': interview_id,
                     'session_id': session.session_id,
-                    'room_id': session.room_id,
-                    'job_title': interview.job.job_title,
-                    'message': 'Your HR interview is ready to join'
+                    'zegocloud_config': {          # ← nested, matching what frontend expects
+                        'app_id': settings.ZEGOCLOUD_APP_ID,
+                        'room_id': session.room_id,
+                        'token': candidate_token,
+                        'user_id': str(interview.application.candidate_id),
+                        'user_name': 'Candidate'
+                    },
+                    'session_started_at': session.started_at.isoformat(),
                 }
             )
             
-            print(f"✅ Meeting started: {session.session_id}")
+            logger.info(f"Meeting started: {session.session_id}")
             
             return {
                 'success': True,
                 'session': session,
-                'interview': interview
+                'interview': interview,
+                'zegocloud_config': {
+                    'app_id': settings.ZEGOCLOUD_APP_ID,
+                    'room_id': session.room_id,
+                    'token': recruiter_token,
+                    'user_id': str(recruiter_id),
+                    'user_name': 'Recruiter'
+                }
             }
             
         except Exception as e:
-            print(f"❌ Start meeting error: {str(e)}")
+            logger.error(f"Start meeting error: {str(e)}")
             return {'success': False, 'error': str(e)}
 
 
 class JoinMeetingUseCase:
-    """Use case for joining a meeting"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
-        self.notification_service = NotificationService()
-        self.meeting_service = MeetingService()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService,
+        meeting_service: MeetingService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
+        self.meeting_service = meeting_service
     
     def execute(self, session_id: str, participant_type: str, user_id: int = None) -> Dict:
-        """
-        Participant joins interview
-        
-        Args:
-            session_id: Meeting session ID
-            participant_type: 'recruiter' or 'candidate'
-            user_id: User ID (for validation)
-        
-        Returns:
-            {
-                'success': bool,
-                'session': MeetingSession,
-                'error': str (if failed)
-            }
-        """
         try:
             session = self.repo.get_meeting_session(session_id)
             
@@ -170,33 +194,26 @@ class JoinMeetingUseCase:
                     }
                 )
             
-            print(f"✅ {participant_type} joined meeting: {session_id}")
+            logger.info(f"{participant_type} joined meeting: {session_id}")
             
             return {'success': True, 'session': session}
             
         except Exception as e:
-            print(f"❌ Join meeting error: {str(e)}")
+            logger.error(f"Join meeting error: {str(e)}")
             return {'success': False, 'error': str(e)}
 
 
 class EndMeetingUseCase:
-    """Use case for ending a meeting"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
-        self.notification_service = NotificationService()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
     
     def execute(self, session_id: str, ended_by_id: int = None) -> Dict:
-        """
-        End interview session
-        
-        Returns:
-            {
-                'success': bool,
-                'session': MeetingSession,
-                'error': str (if failed)
-            }
-        """
         try:
             session = self.repo.end_meeting_session(session_id)
             
@@ -226,10 +243,10 @@ class EndMeetingUseCase:
             from hr_round.tasks import process_interview_completion_task
             process_interview_completion_task.delay(session.interview.id)
             
-            print(f"✅ Meeting ended: {session_id}")
+            logger.info(f"Meeting ended: {session_id}")
             
             return {'success': True, 'session': session}
             
         except Exception as e:
-            print(f"❌ End meeting error: {str(e)}")
+            logger.error(f"End meeting error: {str(e)}")
             return {'success': False, 'error': str(e)}

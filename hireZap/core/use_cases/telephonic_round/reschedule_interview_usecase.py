@@ -8,15 +8,12 @@ from infrastructure.services.notification_service import NotificationService
 
 
 class RescheduleInterviewUseCase:
-    """
-    Reschedule an existing interview
-    """
     
     def __init__(
         self,
         repository: TelephonicRoundRepositoryPort,
-        notification_service: NotificationService
-    ):
+        notification_service: NotificationService):
+
         self.repository = repository
         self.notification_service = notification_service
     
@@ -28,20 +25,7 @@ class RescheduleInterviewUseCase:
         timezone: Optional[str] = None,
         notes: Optional[str] = None,
         send_notification: bool = True,
-        send_email: bool = True
-    ) -> Dict:
-        """
-        Reschedule interview
-        
-        Args:
-            interview_id: Interview ID
-            new_scheduled_at: New scheduled datetime
-            duration: New duration (optional, keeps existing if not provided)
-            timezone: New timezone (optional, keeps existing if not provided)
-            notes: New notes (optional, appends to existing)
-            send_notification: Whether to send notification
-            send_email: Whether to send email
-        """
+        send_email: bool = True) -> Dict:
         
         # 1. Get existing interview
         interview = self.repository.get_interview_by_id(interview_id)
@@ -125,7 +109,6 @@ class RescheduleInterviewUseCase:
         }
     
     def _send_reschedule_notification(self, interview, old_scheduled_at):
-        """Send WebSocket notification about rescheduling"""
         
         self.notification_service.send_websocket_notification(
             user_id=interview.application.candidate_id,

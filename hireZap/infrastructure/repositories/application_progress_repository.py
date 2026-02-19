@@ -1,17 +1,17 @@
 from typing import Dict, List, Optional
 from django.db.models import Q
+from django.conf import settings
 from core.interface.application_progress_repository_port import ApplicationProgressRepositoryPort
 from core.entities.selection_stage import SelectionStage as SelectionStageEntity
 from application.models import ApplicationModel, ApplicationStageHistory
 from selection_process.models import SelectionProcessModel
 from telephonic_round.models import TelephonicInterview, InterviewPerformanceResult,CallSession
-
+from hr_round.models import HRInterview
 import logging
 
 logger = logging.getLogger(__name__)
 
 class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
-    """Repository for handling application progress data"""
     
     def get_application_by_id(self, application_id: int, candidate_id: int):
         """Get application by ID ensuring candidate ownership"""
@@ -113,7 +113,7 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
                 duration_seconds = (interview.ended_at - interview.started_at).total_seconds()
                 actual_duration = int(duration_seconds / 60)  # Convert to minutes
             
-            # ✅ GET SESSION_ID from active call session
+            # GET SESSION_ID from active call session
             session_id = None
             try:
                 # Direct access - OneToOne relationship
@@ -142,6 +142,93 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
         except TelephonicInterview.DoesNotExist:
             return None
     
+    def get_hr_interview_progress(self, application_id: int) -> Optional[Dict]:
+        """Get HR interview progress for application"""
+        try:
+            interview = HRInterview.objects.select_related(
+                'application',
+                'notes',
+                'result'
+            ).get(application_id=application_id)
+        
+            session = None
+            try:
+                session = interview.meeting_session
+            except Exception:
+                session = None
+            
+            # Get notes/score if exists
+            score = None
+            result = None
+            feedback = None
+            
+            try:
+                if hasattr(interview, 'notes') and interview.notes:
+                    score = interview.notes.calculated_score
+                    result = 'passed' if score and score >= 70 else 'failed' if score else None
+                    feedback = interview.notes.overall_impression
+            except Exception:
+                pass
+
+            session_id = None
+            zegocloud_config = None
+            
+            if session and not session.ended_at and interview.status in ['in_progress', 'candidate_joined']:
+                session_id = session.session_id
+                
+                try:
+                    from infrastructure.services.hr_round_service import MeetingService
+                    
+                    candidate_id = str(interview.application.candidate_id)
+                    logger.info(f"Generating token for candidate_id={candidate_id}, room_id={session.room_id}")
+                    candidate_token = MeetingService.generate_zegocloud_token(
+                        user_id=candidate_id,
+                        room_id=session.room_id
+                    )
+                    
+                    zegocloud_config = {
+                        'app_id': settings.ZEGOCLOUD_APP_ID,
+                        'room_id': session.room_id,
+                        'token': candidate_token,
+                        'user_id': candidate_id,
+                    }
+                    
+                    logger.info(f"ZegoCloud config generated for candidate {candidate_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate ZegoCloud config: {e}")
+                    zegocloud_config = None
+            
+            # Calculate actual duration if completed
+            actual_duration = None
+            if session and session.started_at and session.ended_at:
+                duration_seconds = (session.ended_at - session.started_at).total_seconds()
+                actual_duration = int(duration_seconds / 60)
+            
+            return {
+                'interview_id': interview.id,
+                'status': interview.status,
+                'result': result,
+                'score': score,
+                'scheduled_at': interview.scheduled_at,
+                'started_at': interview.started_at,
+                'completed_at': interview.ended_at,
+                'feedback': feedback,
+                'actual_duration_minutes': actual_duration,
+                'session_id': session_id,
+                'zegocloud_config': zegocloud_config,
+                'session_started_at': session.started_at.isoformat() if session and session.started_at else None
+                
+            }
+            
+        except HRInterview.DoesNotExist:
+            return None
+        except Exception as e:
+            logger.error(f"Error getting HR interview progress: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        
     def get_stage_history(self, application_id: int, stage_id: int) -> Optional[Dict]:
         """Get stage history for application"""
         try:

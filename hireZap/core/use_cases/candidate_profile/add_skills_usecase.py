@@ -8,9 +8,6 @@ class AddSkillUsecase:
         self.candidate_repository = candidate_repository
     
     def execute(self, candidate_id: int, skill_data: dict) -> Dict[str, Any]:
-        """
-        Add a new skill for a candidate with duplicate checking
-        """
         # Get existing skills
         existing_skills = self.candidate_repository.get_skills(candidate_id)
         

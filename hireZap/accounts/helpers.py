@@ -36,15 +36,6 @@ def set_jwt_cookies(response, access_token: str, refresh_token: str, remember_me
         path='/',
     )
     
-    # Debug: Print what's being set
-    print("\n" + "="*80)
-    print("COOKIES BEING SET IN RESPONSE")
-    print(f"Access cookie value (first 50): {str(access_token)[:50]}...")
-    print(f"Access cookie max_age: 3600 seconds (1 hour)")
-    print(f"Refresh cookie max_age: {refresh_max_age} seconds")
-    print(f"All cookies in response: {response.cookies}")
-    print("="*80 + "\n")
-    
     return response
 
 def clear_jwt_cookies(response):

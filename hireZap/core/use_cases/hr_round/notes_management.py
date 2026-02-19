@@ -1,14 +1,21 @@
 from typing import Dict
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 from infrastructure.services.notification_service import NotificationService
+import logging
+logger = logging.getLogger(__name__)
 
 class NotesManagementUseCase:
-    """Main use case for notes management"""
     
-    def __init__(self):
-        self.create_use_case = CreateNotesUseCase()
-        self.update_use_case = UpdateNotesUseCase()
-        self.finalize_use_case = FinalizeNotesUseCase()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
+        self.create_use_case = CreateNotesUseCase(repository)
+        self.update_use_case = UpdateNotesUseCase(repository)
+        self.finalize_use_case = FinalizeNotesUseCase(repository, notification_service)
     
     def create_notes(self, *args, **kwargs) -> Dict:
         """Create notes - delegates to CreateNotesUseCase"""
@@ -24,27 +31,15 @@ class NotesManagementUseCase:
 
 
 class CreateNotesUseCase:
-    """Use case for creating interview notes"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
+    def __init__(self, repository: HRRoundRepositoryPort):
+        self.repo = repository
     
     def execute(
         self,
         interview_id: int,
         recorded_by_id: int,
-        notes_data: Dict
-    ) -> Dict:
-        """
-        Create interview notes
-        
-        Returns:
-            {
-                'success': bool,
-                'notes': InterviewNotes,
-                'error': str (if failed)
-            }
-        """
+        notes_data: Dict) -> Dict:
         try:
             interview = self.repo.get_interview_by_id(interview_id)
             
@@ -66,7 +61,7 @@ class CreateNotesUseCase:
                 notes_data=notes_data
             )
             
-            print(f"✅ Notes created for interview {interview_id} - Score: {notes.calculated_score}")
+            logger.info(f"Notes created for interview {interview_id} - Score: {notes.calculated_score}")
             
             return {
                 'success': True,
@@ -74,7 +69,7 @@ class CreateNotesUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Create notes error: {str(e)}")
+            logger.error(f"Create notes error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -82,27 +77,16 @@ class CreateNotesUseCase:
 
 
 class UpdateNotesUseCase:
-    """Use case for updating interview notes"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
+    def __init__(self, repository: HRRoundRepositoryPort):
+        self.repo = repository
     
     def execute(
         self,
         interview_id: int,
         recorded_by_id: int,
-        notes_data: Dict
-    ) -> Dict:
-        """
-        Update interview notes
+        notes_data: Dict) -> Dict:
         
-        Returns:
-            {
-                'success': bool,
-                'notes': InterviewNotes,
-                'error': str (if failed)
-            }
-        """
         try:
             # Check if notes exist
             existing_notes = self.repo.get_notes_by_interview(interview_id)
@@ -120,7 +104,7 @@ class UpdateNotesUseCase:
                 notes_data=notes_data
             )
             
-            print(f"✅ Notes updated for interview {interview_id} - Score: {notes.calculated_score}")
+            logger.info(f"Notes updated for interview {interview_id} - Score: {notes.calculated_score}")
             
             return {
                 'success': True,
@@ -128,30 +112,24 @@ class UpdateNotesUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Update notes error: {str(e)}")
+            logger.error(f"Update notes error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
             }
         
+
 class FinalizeNotesUseCase:
-    """Use case for finalizing interview notes"""
     
-    def __init__(self):
-        self.repo = HRRoundRepositoryPort()
-        self.notification_service = NotificationService()
+    def __init__(
+        self,
+        repository: HRRoundRepositoryPort,
+        notification_service: NotificationService):
+        
+        self.repo = repository
+        self.notification_service = notification_service
     
     def execute(self, interview_id: int, finalized_by_id: int) -> Dict:
-        """
-        Finalize interview notes (lock for editing)
-        
-        Returns:
-            {
-                'success': bool,
-                'notes': InterviewNotes,
-                'error': str (if failed)
-            }
-        """
         try:
             notes = self.repo.get_notes_by_interview(interview_id)
             
@@ -193,7 +171,7 @@ class FinalizeNotesUseCase:
                 }
             )
             
-            print(f"✅ Notes finalized for interview {interview_id}")
+            logger.info(f"Notes finalized for interview {interview_id}")
             
             return {
                 'success': True,
@@ -201,7 +179,7 @@ class FinalizeNotesUseCase:
             }
             
         except Exception as e:
-            print(f"❌ Finalize notes error: {str(e)}")
+            logger.error(f"Finalize notes error: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)

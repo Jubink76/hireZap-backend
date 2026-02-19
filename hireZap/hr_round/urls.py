@@ -15,10 +15,10 @@ from hr_round.views import(
     StartMeetingAPIView,
     JoinMeetingAPIView,
     EndMeetingAPIView,
-    StartRecordingAPIView,
-    StopRecordingAPIView,
+    # StartRecordingAPIView,
+    # StopRecordingAPIView,
     GetRecordingAPIView,
-    UploadRecordingAPIView,
+    # UploadRecordingAPIView,
     DeleteRecordingAPIView,
     GetNotesAPIView,
     CreateNotesAPIView,
@@ -27,7 +27,7 @@ from hr_round.views import(
     GetResultAPIView,
     FinalizeResultAPIView,
     MoveToNextStageAPIView,
-    GetHRInterviewStatsAPIView,
+    ZegoCloudWebhookAPIView
 
 )
 urlpatterns = [
@@ -45,10 +45,10 @@ urlpatterns = [
     path('meeting/start/',StartMeetingAPIView.as_view(),name='start-meeting'),
     path('meeting/join/',JoinMeetingAPIView.as_view(),name='join-meeting'),
     path('meeting/end/',EndMeetingAPIView.as_view(),name='end-meeting'),
-    path('interview/start-recording/',StartRecordingAPIView.as_view(),name='start-recording'),
-    path('interview/stop-recording/',StopRecordingAPIView.as_view(),name='stop-recording'),
+    # path('interview/start-recording/',StartRecordingAPIView.as_view(),name='start-recording'),
+    # path('interview/stop-recording/',StopRecordingAPIView.as_view(),name='stop-recording'),
     path('interview/<int:interview_id>/recordings/',GetRecordingAPIView.as_view(),name='get-recordings'),
-    path('interview/recording/upload/',UploadRecordingAPIView.as_view(),name='upload-recording'),
+    # path('interview/recording/upload/',UploadRecordingAPIView.as_view(),name='upload-recording'),
     path('interview/<int:interview_id>/delete/recording/',DeleteRecordingAPIView.as_view(),name='delete-recording'),
     path('interview/<int:interview_id>/notes/',GetNotesAPIView.as_view(),name='get-interview-notes'),
     path('interview/create-note/',CreateNotesAPIView.as_view(),name='create-note'),
@@ -57,6 +57,7 @@ urlpatterns = [
     path('interview/<int:interview_id>/results/',GetResultAPIView.as_view(),name='interview-results'),
     path('interview/results/finalize/',FinalizeResultAPIView.as_view(),name='finalize-results'),
     path('interview/move-to-next-stage/',MoveToNextStageAPIView.as_view(),name='move-to-next-stage'),
-    path('inteview/<int:interview_id>/stats/',GetHRInterviewStatsAPIView.as_view(),name='get-interview-stats'),
+    # path('inteview/<int:interview_id>/stats/',GetHRInterviewStatsAPIView.as_view(),name='get-interview-stats'),
+    path('webhooks/zegocloud/',ZegoCloudWebhookAPIView.as_view(), name='zegocloud-webhook'),
     
 ]

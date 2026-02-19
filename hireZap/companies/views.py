@@ -211,7 +211,6 @@ class UpdateCompany(APIView):
                 {'error': res['error']},
                 status = error_status
             )
-        print(res['company'])
         return Response(
             {'message' : res['message'],
              'company' : res['company']},

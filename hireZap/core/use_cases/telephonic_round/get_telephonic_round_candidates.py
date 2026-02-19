@@ -7,12 +7,6 @@ from core.interface.telephonic_round_repository_port import TelephonicRoundRepos
 
 
 class GetTelephonicRoundCandidates:
-    """
-    Get candidates in telephonic round stage
-    Shows both:
-    1. Candidates who just moved here (no interview scheduled yet)
-    2. Candidates with scheduled/completed interviews
-    """
     
     def __init__(self, repository: TelephonicRoundRepositoryPort):
         self.repository = repository

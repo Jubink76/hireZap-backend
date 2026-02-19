@@ -8,18 +8,6 @@ class UpdateUserProfileUseCase:
         self.user_repo = user_repo
 
     def execute(self, user_id:int, profile_data:dict) -> UserEntity:
-        """ Update user profile with validation
-
-            Args:
-                user_id : Id of the user update
-                profile_data : Dictionary containing fields to update
-            
-            Returns:
-                Updated UserEntity
-            Raises:
-                ValueError: If validation fails
-            
-        """
         existing_user = self.user_repo.get_by_id(user_id)
         if not existing_user:
             raise ValueError("User not found")

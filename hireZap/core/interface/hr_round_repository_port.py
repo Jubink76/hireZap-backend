@@ -56,7 +56,7 @@ class HRRoundRepositoryPort(ABC):
         return NotImplementedError
     
     @abstractmethod
-    def bulk_schedule_interview(self,
+    def bulk_schedule_interviews(self,
                                 application_ids:List[int],
                                 scheduled_at:timezone.datetime,
                                 duration_minutes:int,
@@ -116,15 +116,25 @@ class HRRoundRepositoryPort(ABC):
         """Update participant connection status"""
         return NotImplementedError
     
-    @abstractmethod
-    def start_recording(self, session_id:str):
-        """Start recording"""
-        return NotImplementedError
+    # @abstractmethod
+    # def start_recording(self, session_id:str):
+    #     """Start recording"""
+    #     return NotImplementedError
     
+    # @abstractmethod
+    # def stop_recording(self, session_id:str):
+    #     """"Stop recording"""
+    #     return NotImplementedError
+
     @abstractmethod
-    def stop_recording(self, session_id:str):
-        """"Stop recording"""
-        return NotImplementedError
+    def save_zegocloud_recording(self, session_id: str, recording_url: str, recording_id: str):
+        """Save recording URL from ZegoCloud webhook"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_zegocloud_chat_message(self, interview_id: int, message_data: dict):
+        """Save chat message from ZegoCloud webhook"""
+        raise NotImplementedError
     
     @abstractmethod
     def end_meeting_session(self, session_id:str):
@@ -167,19 +177,19 @@ class HRRoundRepositoryPort(ABC):
         return NotImplementedError
     
     @abstractmethod
-    def finilize_notes(self, interview_id:int):
+    def finalize_notes(self, interview_id:int):
         """Finalize notes"""
         return NotImplementedError
     
-    @abstractmethod
-    def save_chat_message(self, interview_id:int, sender_id:str, sender_type:str,message:str, is_system_message:bool=False):
-        """Save chat message to database"""
-        return NotImplementedError
+    # @abstractmethod
+    # def save_chat_message(self, interview_id:int, sender_id:str, sender_type:str,message:str, is_system_message:bool=False):
+    #     """Save chat message to database"""
+    #     return NotImplementedError
     
-    @abstractmethod
-    def get_chat_messages(self, interview_id:int, limit:int =100):
-        """Get chat messages for interview"""
-        return NotImplementedError
+    # @abstractmethod
+    # def get_chat_messages(self, interview_id:int, limit:int =100):
+    #     """Get chat messages for interview"""
+    #     return NotImplementedError
     
     @abstractmethod
     def delete_chat_messages(self, interview_id:int):

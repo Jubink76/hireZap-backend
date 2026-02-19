@@ -6,24 +6,11 @@ from core.interface.telephonic_round_repository_port import TelephonicRoundRepos
 
 
 class GetInterviewDetailsUseCase:
-    """
-    Get complete interview details including transcription and analysis
-    """
     
     def __init__(self, repository: TelephonicRoundRepositoryPort):
         self.repository = repository
     
     def execute(self, interview_id: int, user_id: int) -> Dict:
-        """
-        Get detailed interview information
-        
-        Args:
-            interview_id: Interview ID
-            user_id: Requesting user ID (for authorization)
-        
-        Returns:
-            Complete interview details with transcription and analysis
-        """
         
         # 1. Get interview with all related data
         interview = self.repository.get_interview_by_id(interview_id)

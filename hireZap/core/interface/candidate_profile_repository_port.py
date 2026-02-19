@@ -10,8 +10,6 @@ from core.entities.candidate_profile import (
 
 
 class CandidateRepositoryPort(ABC):
-    """Repository interface for candidate profile operations"""
-    
     @abstractmethod
     def get_profile_by_user_id(self, user_id: int) -> Optional[CandidateProfile]:
         """Get profile by user id"""

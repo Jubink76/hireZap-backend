@@ -8,7 +8,7 @@ class GetTelephonicRoundSettings():
         self.repository = repository
     
     def execute(self,job_id:int):
-        settings = self.repository.get_settings_by_id(job_id)
+        settings = self.repository.get_settings_by_job(job_id)
         
         # Create default settings if none exist
         if not settings:

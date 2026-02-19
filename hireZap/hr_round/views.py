@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.conf import settings
 
 from hr_round.serializers import(
     HRRoundSettingsSerializer,
@@ -35,8 +36,9 @@ from core.use_cases.hr_round.conduct_interview import(
     EndMeetingUseCase
 )
 from core.use_cases.hr_round.recording_management import(
-    UploadRecordingUseCase,
-    DeleteRecordingUseCase
+    # UploadRecordingUseCase,
+    DeleteRecordingUseCase,
+    ProcessZegoCloudWebhookUseCase
 )
 from core.use_cases.hr_round.process_results import(
     FinalizeResultUseCase,
@@ -47,17 +49,16 @@ from core.use_cases.hr_round.notes_management import(
     UpdateNotesUseCase,
     FinalizeNotesUseCase
 )
-from infrastructure.services.hr_round_service import MeetingService
+from infrastructure.services.hr_round_service import MeetingService, VideoProcessingService
 
 
 class GetHRRoundSettingsAPIView(APIView):
-    """Get HR Round settings for a job"""
     permission_classes  = [IsAuthenticated]
 
     def get(self, request, job_id):
         try:
             repository = HRInterviewRepository()
-            settings = repository.get_settings_by_job(job_id)
+            settings = repository.get_settings_by_id(job_id)
             
             if not settings:
                 # Create default settings
@@ -77,7 +78,6 @@ class GetHRRoundSettingsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class UppdateHRRoundSettingsAPIView(APIView):
-    """Update HR Round Settings"""
     permission_classes = [IsAuthenticated]
 
     def put(self,request,job_id):
@@ -125,7 +125,6 @@ class UppdateHRRoundSettingsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class GetHRInterviewsAPIView(APIView):
-    """Get all HR interviews for a job"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, job_id):
@@ -150,7 +149,6 @@ class GetHRInterviewsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class GetInterviewByApplicationAPIView(APIView):
-    """Get HR interview by application ID"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, application_id):
@@ -178,7 +176,6 @@ class GetInterviewByApplicationAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class GetInterviewDetailsAPIView(APIView):
-    """Get detailed interview information"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, interview_id):
@@ -206,7 +203,6 @@ class GetInterviewDetailsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetUpcomingInterviewsAPIView(APIView):
-    """Get upcoming interviews for current user"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
@@ -242,10 +238,11 @@ class GetUpcomingInterviewsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ScheduleHRInterviewAPIView(APIView):
-    """Schedule single HR interview"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        repository = HRInterviewRepository()  
+        notification_service = NotificationService()
         try:
             # Validate input
             serializer = ScheduleHRInterviewSerializer(data=request.data)
@@ -258,7 +255,7 @@ class ScheduleHRInterviewAPIView(APIView):
             data = serializer.validated_data
             
             # Execute use case
-            use_case = ScheduleInterviewUsecase()
+            use_case = ScheduleInterviewUsecase(repository, notification_service)
             result = use_case.execute(
                 application_id=data['application_id'],
                 scheduled_at=data['scheduled_at'],
@@ -285,7 +282,6 @@ class ScheduleHRInterviewAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class BulkScheduleHRInterviewsAPIView(APIView):
-    """Bulk schedule HR interviews"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -299,9 +295,10 @@ class BulkScheduleHRInterviewsAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             data = serializer.validated_data
-            
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
             # Execute use case
-            use_case = BulkScheduleHRInterviewUsecase()
+            use_case = BulkScheduleHRInterviewUsecase(repository, notification_service)
             result = use_case.execute(
                 application_ids=data['application_ids'],
                 scheduled_at=data['scheduled_at'],
@@ -326,7 +323,6 @@ class BulkScheduleHRInterviewsAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class RescheduleHRInterviewAPIView(APIView):
-    """Reschedule HR interview"""
     permission_classes = [IsAuthenticated]
     
     def put(self, request, interview_id):
@@ -342,7 +338,9 @@ class RescheduleHRInterviewAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Execute use case
-            use_case = RescheduleHRInterviewUsecase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = RescheduleHRInterviewUsecase(repository, notification_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 new_scheduled_at=new_scheduled_at,
@@ -367,7 +365,7 @@ class RescheduleHRInterviewAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CancelHRInterviewAPIView(APIView):
-    """Cancel HR interview"""
+
     permission_classes = [IsAuthenticated]
     
     def post(self, request, interview_id):
@@ -375,7 +373,9 @@ class CancelHRInterviewAPIView(APIView):
             reason = request.data.get('reason', '')
             
             # Execute use case
-            use_case = CancelHRInterviewUsecase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = CancelHRInterviewUsecase(repository, notification_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 cancellation_reason=reason,
@@ -399,7 +399,6 @@ class CancelHRInterviewAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class UpdateInterviewStatusAPIView(APIView):
-    """Update interview status"""
     permission_classes = [IsAuthenticated]
     
     def patch(self, request, interview_id):
@@ -434,7 +433,7 @@ class UpdateInterviewStatusAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class StartMeetingAPIView(APIView):
-    """Start HR interview meeting"""
+
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -447,8 +446,10 @@ class StartMeetingAPIView(APIView):
                     'error': 'interview_id is required'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Execute use case
-            use_case = StartMeetingUseCase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            
+            use_case = StartMeetingUseCase(repository, notification_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 recruiter_id=request.user.id
@@ -457,13 +458,12 @@ class StartMeetingAPIView(APIView):
             if result['success']:
                 session_serializer = MeetingSessionSerializer(result['session'])
                 interview_serializer = HRInterviewDetailSerializer(result['interview'])
-                meeting_service = MeetingService()
                 
                 return Response({
                     'success': True,
                     'session': session_serializer.data,
                     'interview': interview_serializer.data,
-                    'webrtc_config': meeting_service.generate_webrtc_config(),
+                    'zegocloud_config': result['zegocloud_config'],
                     'message': 'Meeting started successfully'
                 })
             else:
@@ -479,45 +479,84 @@ class JoinMeetingAPIView(APIView):
     """Join HR interview meeting"""
     permission_classes = [IsAuthenticated]
     
+    # def post(self, request):
+    #     try:
+    #         session_id = request.data.get('session_id')
+            
+    #         if not session_id:
+    #             return Response({
+    #                 'success': False,
+    #                 'error': 'session_id is required'
+    #             }, status=status.HTTP_400_BAD_REQUEST)
+            
+    #         user_type = 'candidate' if request.user.user_type == 'candidate' else 'recruiter'
+            
+    #         # Execute use case
+    #         use_case = JoinMeetingUseCase()
+    #         result = use_case.execute(
+    #             session_id=session_id,
+    #             participant_type=user_type,
+    #             user_id=request.user.id
+    #         )
+            
+    #         if result['success']:
+    #             session_serializer = MeetingSessionSerializer(result['session'])
+    #             meeting_service = MeetingService()
+                
+    #             return Response({
+    #                 'success': True,
+    #                 'session': session_serializer.data,
+    #                 'webrtc_config': meeting_service.generate_webrtc_config(),
+    #                 'message': 'Joined meeting successfully'
+    #             })
+    #         else:
+    #             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+    #     except Exception as e:
+    #         return Response({
+    #             'success': False,
+    #             'error': str(e)
+    #         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
     def post(self, request):
         try:
             session_id = request.data.get('session_id')
             
-            if not session_id:
+            # Get session
+            repo = HRInterviewRepository()
+            session = repo.get_meeting_session(session_id)
+            
+            if not session:
                 return Response({
                     'success': False,
-                    'error': 'session_id is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                    'error': 'Session not found'
+                }, status=status.HTTP_404_NOT_FOUND)
             
-            user_type = 'candidate' if request.user.user_type == 'candidate' else 'recruiter'
+            from infrastructure.services.hr_round_service import MeetingService
             
-            # Execute use case
-            use_case = JoinMeetingUseCase()
-            result = use_case.execute(
-                session_id=session_id,
-                participant_type=user_type,
-                user_id=request.user.id
+            user_token = MeetingService.generate_zegocloud_token(
+                user_id=str(request.user.id),
+                room_id=session.room_id
             )
             
-            if result['success']:
-                session_serializer = MeetingSessionSerializer(result['session'])
-                meeting_service = MeetingService()
-                
-                return Response({
-                    'success': True,
-                    'session': session_serializer.data,
-                    'webrtc_config': meeting_service.generate_webrtc_config(),
-                    'message': 'Joined meeting successfully'
-                })
-            else:
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'success': True,
+                'session': MeetingSessionSerializer(session).data,
+                'zegocloud_config': {
+                    'app_id': settings.ZEGOCLOUD_APP_ID,
+                    'room_id': session.room_id,
+                    'token': user_token,
+                    'user_id': str(request.user.id)
+                },
+                'message': 'Joined meeting successfully'
+            })
             
         except Exception as e:
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+    
 class EndMeetingAPIView(APIView):
     """End HR interview meeting"""
     permission_classes = [IsAuthenticated]
@@ -533,7 +572,9 @@ class EndMeetingAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Execute use case
-            use_case = EndMeetingUseCase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = EndMeetingUseCase(repository, notification_service)
             result = use_case.execute(
                 session_id=session_id,
                 ended_by_id=request.user.id
@@ -554,68 +595,111 @@ class EndMeetingAPIView(APIView):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
-class StartRecordingAPIView(APIView):
-    """Start recording interview"""
-    permission_classes = [IsAuthenticated]
+class ZegoCloudWebhookAPIView(APIView):
+    """Handle ZegoCloud webhooks"""
+    permission_classes = []  # Public endpoint (validate signature instead)
     
     def post(self, request):
         try:
-            session_id = request.data.get('session_id')
-            
-            if not session_id:
+            # Validate webhook signature (important!)
+            signature = request.headers.get('X-ZegoCloud-Signature')
+            if not self._validate_signature(request.body, signature):
                 return Response({
                     'success': False,
-                    'error': 'session_id is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                    'error': 'Invalid signature'
+                }, status=status.HTTP_401_UNAUTHORIZED)
             
+            # Process webhook
             repository = HRInterviewRepository()
-            session = repository.start_recording(session_id)
+            notification_service = NotificationService()
+            use_case = ProcessZegoCloudWebhookUseCase(repository, notification_service)
+            result = use_case.execute(request.data)
             
-            serializer = MeetingSessionSerializer(session)
-            
-            return Response({
-                'success': True,
-                'session': serializer.data,
-                'message': 'Recording started'
-            })
+            return Response(result)
             
         except Exception as e:
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class StopRecordingAPIView(APIView):
-    """Stop recording interview"""
-    permission_classes = [IsAuthenticated]
     
-    def post(self, request):
-        try:
-            session_id = request.data.get('session_id')
+    def _validate_signature(self, payload: bytes, signature: str) -> bool:
+        """Validate ZegoCloud webhook signature"""
+        import hmac
+        import hashlib
+        
+        secret = settings.ZEGOCLOUD_SERVER_SECRET.encode()
+        expected_signature = hmac.new(
+            secret,
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+        
+        return hmac.compare_digest(expected_signature, signature)
+
+# class StartRecordingAPIView(APIView):
+#     """Start recording interview"""
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request):
+#         try:
+#             session_id = request.data.get('session_id')
             
-            if not session_id:
-                return Response({
-                    'success': False,
-                    'error': 'session_id is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+#             if not session_id:
+#                 return Response({
+#                     'success': False,
+#                     'error': 'session_id is required'
+#                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            repository = HRInterviewRepository()
-            session = repository.stop_recording(session_id)
+#             repository = HRInterviewRepository()
+#             session = repository.start_recording(session_id)
             
-            serializer = MeetingSessionSerializer(session)
+#             serializer = MeetingSessionSerializer(session)
             
-            return Response({
-                'success': True,
-                'session': serializer.data,
-                'message': 'Recording stopped'
-            })
+#             return Response({
+#                 'success': True,
+#                 'session': serializer.data,
+#                 'message': 'Recording started'
+#             })
             
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             return Response({
+#                 'success': False,
+#                 'error': str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# class StopRecordingAPIView(APIView):
+#     """Stop recording interview"""
+#     permission_classes = [IsAuthenticated]
+    
+#     def post(self, request):
+#         try:
+#             session_id = request.data.get('session_id')
+            
+#             if not session_id:
+#                 return Response({
+#                     'success': False,
+#                     'error': 'session_id is required'
+#                 }, status=status.HTTP_400_BAD_REQUEST)
+            
+#             repository = HRInterviewRepository()
+#             session = repository.stop_recording(session_id)
+            
+#             serializer = MeetingSessionSerializer(session)
+            
+#             return Response({
+#                 'success': True,
+#                 'session': serializer.data,
+#                 'message': 'Recording stopped'
+#             })
+            
+#         except Exception as e:
+#             return Response({
+#                 'success': False,
+#                 'error': str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetRecordingAPIView(APIView):
     """Get recording by interview ID"""
@@ -645,47 +729,47 @@ class GetRecordingAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class UploadRecordingAPIView(APIView):
-    """Upload interview recording"""
-    permission_classes = [IsAuthenticated]
+# class UploadRecordingAPIView(APIView):
+#     """Upload interview recording"""
+#     permission_classes = [IsAuthenticated]
     
-    def post(self, request):
-        try:
-            # Validate input
-            serializer = UploadRecordingSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response({
-                    'success': False,
-                    'errors': serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
+#     def post(self, request):
+#         try:
+#             # Validate input
+#             serializer = UploadRecordingSerializer(data=request.data)
+#             if not serializer.is_valid():
+#                 return Response({
+#                     'success': False,
+#                     'errors': serializer.errors
+#                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            data = serializer.validated_data
+#             data = serializer.validated_data
             
-            # Execute use case
-            use_case = UploadRecordingUseCase()
-            result = use_case.execute(
-                interview_id=data['interview_id'],
-                video_file=data['video_file'],
-                filename=data['video_file'].name,
-                duration_seconds=data.get('duration_seconds'),
-                resolution=data.get('resolution')
-            )
+#             # Execute use case
+#             use_case = UploadRecordingUseCase()
+#             result = use_case.execute(
+#                 interview_id=data['interview_id'],
+#                 video_file=data['video_file'],
+#                 filename=data['video_file'].name,
+#                 duration_seconds=data.get('duration_seconds'),
+#                 resolution=data.get('resolution')
+#             )
             
-            if result['success']:
-                response_serializer = InterviewRecordingSerializer(result['recording'])
-                return Response({
-                    'success': True,
-                    'recording': response_serializer.data,
-                    'message': 'Recording uploaded successfully'
-                })
-            else:
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+#             if result['success']:
+#                 response_serializer = InterviewRecordingSerializer(result['recording'])
+#                 return Response({
+#                     'success': True,
+#                     'recording': response_serializer.data,
+#                     'message': 'Recording uploaded successfully'
+#                 })
+#             else:
+#                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
             
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             return Response({
+#                 'success': False,
+#                 'error': str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class DeleteRecordingAPIView(APIView):
     """Delete interview recording"""
@@ -693,8 +777,10 @@ class DeleteRecordingAPIView(APIView):
     
     def delete(self, request, interview_id):
         try:
+            repository = HRInterviewRepository()
+            video_service = VideoProcessingService()
             # Execute use case
-            use_case = DeleteRecordingUseCase()
+            use_case = DeleteRecordingUseCase(repository, video_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 deleted_by_id=request.user.id
@@ -765,7 +851,8 @@ class CreateNotesAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Execute use case
-            use_case = CreateNotesUseCase()
+            repository = HRInterviewRepository()
+            use_case = CreateNotesUseCase(repository)
             result = use_case.execute(
                 interview_id=interview_id,
                 recorded_by_id=request.user.id,
@@ -803,7 +890,8 @@ class UpdateNotesAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Execute use case
-            use_case = UpdateNotesUseCase()
+            repository = HRInterviewRepository()
+            use_case = UpdateNotesUseCase(repository)
             result = use_case.execute(
                 interview_id=interview_id,
                 recorded_by_id=request.user.id,
@@ -833,7 +921,9 @@ class FinalizeNotesAPIView(APIView):
     def post(self, request, interview_id):
         try:
             # Execute use case
-            use_case = FinalizeNotesUseCase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = FinalizeResultUseCase(repository, notification_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 finalized_by_id=request.user.id
@@ -943,7 +1033,9 @@ class MoveToNextStageAPIView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Execute use case
-            use_case = MoveToNextStageUseCase()
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = MoveToNextStageUseCase(repository, notification_service)
             result = use_case.execute(
                 interview_id=interview_id,
                 next_stage_id=next_stage_id
@@ -965,54 +1057,54 @@ class MoveToNextStageAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-class GetHRInterviewStatsAPIView(APIView):
-    """Get statistics for HR interviews"""
-    permission_classes = [IsAuthenticated]
+# class GetHRInterviewStatsAPIView(APIView):
+#     """Get statistics for HR interviews"""
+#     permission_classes = [IsAuthenticated]
     
-    def get(self, request, job_id):
-        try:
-            repository = HRInterviewRepository()
+#     def get(self, request, job_id):
+#         try:
+#             repository = HRInterviewRepository()
             
-            from .models import HRInterview, InterviewResult
-            from django.db.models import Count, Avg, Q
+#             from .models import HRInterview, InterviewResult
+#             from django.db.models import Count, Avg, Q
             
-            # Get all interviews for job
-            all_interviews = HRInterview.objects.filter(job_id=job_id)
+#             # Get all interviews for job
+#             all_interviews = HRInterview.objects.filter(job_id=job_id)
             
-            stats = {
-                'total_interviews': all_interviews.count(),
-                'scheduled': all_interviews.filter(status='scheduled').count(),
-                'in_progress': all_interviews.filter(status='in_progress').count(),
-                'completed': all_interviews.filter(status='completed').count(),
-                'cancelled': all_interviews.filter(status='cancelled').count(),
-                'no_show': all_interviews.filter(status='no_show').count(),
-            }
+#             stats = {
+#                 'total_interviews': all_interviews.count(),
+#                 'scheduled': all_interviews.filter(status='scheduled').count(),
+#                 'in_progress': all_interviews.filter(status='in_progress').count(),
+#                 'completed': all_interviews.filter(status='completed').count(),
+#                 'cancelled': all_interviews.filter(status='cancelled').count(),
+#                 'no_show': all_interviews.filter(status='no_show').count(),
+#             }
             
-            # Get results stats
-            results = InterviewResult.objects.filter(interview__job_id=job_id)
+#             # Get results stats
+#             results = InterviewResult.objects.filter(interview__job_id=job_id)
             
-            if results.exists():
-                stats['results'] = {
-                    'total_evaluated': results.count(),
-                    'qualified': results.filter(decision='qualified').count(),
-                    'not_qualified': results.filter(decision='not_qualified').count(),
-                    'average_score': round(results.aggregate(Avg('final_score'))['final_score__avg'] or 0, 2),
-                }
-            else:
-                stats['results'] = {
-                    'total_evaluated': 0,
-                    'qualified': 0,
-                    'not_qualified': 0,
-                    'average_score': 0
-                }
+#             if results.exists():
+#                 stats['results'] = {
+#                     'total_evaluated': results.count(),
+#                     'qualified': results.filter(decision='qualified').count(),
+#                     'not_qualified': results.filter(decision='not_qualified').count(),
+#                     'average_score': round(results.aggregate(Avg('final_score'))['final_score__avg'] or 0, 2),
+#                 }
+#             else:
+#                 stats['results'] = {
+#                     'total_evaluated': 0,
+#                     'qualified': 0,
+#                     'not_qualified': 0,
+#                     'average_score': 0
+#                 }
             
-            return Response({
-                'success': True,
-                'stats': stats
-            })
+#             return Response({
+#                 'success': True,
+#                 'stats': stats
+#             })
             
-        except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             return Response({
+#                 'success': False,
+#                 'error': str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -3,18 +3,16 @@ from core.interface.resume_screening_repository_port import ResumeScreeningRepos
 from core.interface.notification_service_port import NotificationServicePort
 
 class MoveToNextStageUseCase:
-    """Move qualified candidates to next stage"""
     
     def __init__(
         self,
         screening_repo: ResumeScreeningRepositoryPort,
-        notification_service: NotificationServicePort
-    ):
+        notification_service: NotificationServicePort):
+
         self.screening_repo = screening_repo
         self.notification_service = notification_service
     
     def execute(self, application_ids: List[int], feedback: str = None) -> Dict:
-        """Move applications to next stage"""
         
         results = []
         
@@ -31,7 +29,6 @@ class MoveToNextStageUseCase:
         }
     
     def _move_single_application(self, application_id: int, feedback: str) -> Dict:
-        """Move single application to next stage"""
         try:
             # This will be implemented in repository
             result = self.screening_repo.move_to_next_stage(application_id, feedback)
