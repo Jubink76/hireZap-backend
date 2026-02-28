@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 @shared_task(name='hr_interview.send_hr_interview_scheduled_email')
 def send_hr_interview_scheduled_email_task(interview_id: int):
-    """Send email when HR interview is scheduled"""
     try:
         repo = HRInterviewRepository()
         interview = repo.get_interview_by_id(interview_id)
@@ -70,10 +69,6 @@ Regards,
 
 @shared_task(name='hr_interview.send_hr_interview_reminders')
 def send_hr_interview_reminders_task():
-    """
-    Celery Beat task to send reminders for upcoming HR interviews
-    Run every hour
-    """
     try:
         repo = HRInterviewRepository()
         notification_service = NotificationService()
@@ -152,12 +147,7 @@ Best regards,
 
 @shared_task(name='hr_interview.process_interview_completion')
 def process_interview_completion_task(interview_id: int):
-    """
-    Process interview after completion:
-    1. Update statuses
-    2. Send notifications
-    3. Cleanup temporary data
-    """
+
     try:
         repo = HRInterviewRepository()
         notification_service = NotificationService()
@@ -289,7 +279,6 @@ def process_interview_completion_task(interview_id: int):
 
 @shared_task(name='hr_interview.send_hr_interview_result_email')
 def send_hr_interview_result_email_task(interview_id: int):
-    """Send interview result email to candidate"""
     try:
         repo = HRInterviewRepository()
         interview = repo.get_interview_by_id(interview_id)

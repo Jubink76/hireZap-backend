@@ -187,7 +187,7 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
                     )
                     
                     zegocloud_config = {
-                        'app_id': settings.ZEGOCLOUD_APP_ID,
+                        'app_id': str(settings.ZEGOCLOUD_APP_ID),
                         'room_id': session.room_id,
                         'token': candidate_token,
                         'user_id': candidate_id,
@@ -217,7 +217,7 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
                 'actual_duration_minutes': actual_duration,
                 'session_id': session_id,
                 'zegocloud_config': zegocloud_config,
-                'session_started_at': session.started_at.isoformat() if session and session.started_at else None
+                'session_started_at': session.started_at if session and session.started_at else None
                 
             }
             

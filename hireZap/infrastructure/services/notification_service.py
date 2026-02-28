@@ -3,6 +3,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from core.interface.notification_service_port import NotificationServicePort
+import logging
+logger = logging.getLogger(__name__)
 
 class NotificationService(NotificationServicePort):
     
@@ -18,7 +20,7 @@ class NotificationService(NotificationServicePort):
                 }
             )
         except Exception as e:
-            print(f"WebSocket notification failed: {str(e)}")
+            logger.error(f"WebSocket notification failed: {str(e)}")
     
     def send_screening_result_email(self, application_id: int, decision: str, score: int):
         """Send screening result email (triggers Celery task)"""

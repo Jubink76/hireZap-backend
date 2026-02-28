@@ -5,9 +5,10 @@ from core.interface.storage_repository_port import StorageRepositoryPort
 from typing import BinaryIO, Dict
 import uuid
 import os
+import logging
+logger = logging.getLogger(__name__)
 
 class R2Storage(StorageRepositoryPort):
-    """Cloudflare R2 storage implementation"""
     def __init__(self):
         self.account_id = settings.R2_ACCOUNT_ID
         self.access_key = settings.R2_ACCESS_KEY_ID
@@ -33,7 +34,6 @@ class R2Storage(StorageRepositoryPort):
         content_type: str,
         make_public: bool = True,
         **kwargs) -> Dict:
-        """Upload file to R2"""
         try:
             # Generate unique filename
             file_ext = os.path.splitext(filename)[1]
@@ -66,11 +66,10 @@ class R2Storage(StorageRepositoryPort):
             }
             
         except Exception as e:
-            print(f"❌ R2 Upload Error: {str(e)}")
+            logger.error(f" R2 Upload Error: {str(e)}")
             raise Exception(f"Failed to upload to R2: {str(e)}")
     
     def delete_file(self, file_key: str) -> bool:
-        """Delete file from R2"""
         try:
             self.client.delete_object(
                 Bucket=self.bucket_name,
@@ -78,11 +77,10 @@ class R2Storage(StorageRepositoryPort):
             )
             return True
         except Exception as e:
-            print(f"❌ R2 Delete Error: {str(e)}")
+            logger.error(f" R2 Delete Error: {str(e)}")
             return False
     
     def generate_signed_url(self, file_key: str, expires_in: int = 3600) -> str:
-        """Generate presigned URL for private files"""
         try:
             url = self.client.generate_presigned_url(
                 'get_object',
@@ -94,11 +92,10 @@ class R2Storage(StorageRepositoryPort):
             )
             return url
         except Exception as e:
-            print(f"❌ R2 Signed URL Error: {str(e)}")
+            logger.error(f" R2 Signed URL Error: {str(e)}")
             raise Exception(f"Failed to generate signed URL: {str(e)}")
     
     def file_exists(self, file_key: str) -> bool:
-        """Check if file exists in R2"""
         try:
             self.client.head_object(
                 Bucket=self.bucket_name,

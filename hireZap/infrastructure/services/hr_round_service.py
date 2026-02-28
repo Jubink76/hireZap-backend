@@ -195,8 +195,7 @@ class MeetingService:
     def generate_zegocloud_token(user_id: str, room_id: str, expire_time: int = 7200) -> str:
         """
         ZegoCloud Token04 - Official Implementation
-        Based on: https://github.com/zegoim/zego_server_assistant
-        """
+        Based on: https://github.com/zegoim/zego_server_assistant"""
         
         app_id = int(settings.ZEGOCLOUD_APP_ID)
         secret = settings.ZEGOCLOUD_SERVER_SECRET

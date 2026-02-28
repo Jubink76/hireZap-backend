@@ -3,6 +3,7 @@ from django.conf import settings
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 from infrastructure.services.notification_service import NotificationService
 from infrastructure.services.hr_round_service import MeetingService
+from django.utils import timezone
 import logging
 logger = logging.getLogger(__name__)
 
@@ -51,14 +52,12 @@ class StartMeetingUseCase:
             if not interview:
                 return {'success': False, 'error': 'Interview not found'}
             
-            # Validate interview can be started
             if interview.status == 'completed':
                 return {'success': False, 'error': 'Interview already completed'}
             
             if interview.status == 'cancelled':
                 return {'success': False, 'error': 'Interview is cancelled'}
-            
-            # Validate recruiter
+
             if interview.conducted_by_id != recruiter_id:
                 return {'success': False, 'error': 'Not authorized to start this interview'}
             
@@ -160,11 +159,9 @@ class JoinMeetingUseCase:
             if not session:
                 return {'success': False, 'error': 'Session not found'}
             
-            # Validate session is active
             if session.ended_at:
                 return {'success': False, 'error': 'Session has ended'}
             
-            # Validate participant access (optional)
             if user_id:
                 access_result = self.meeting_service.validate_meeting_access(
                     interview_id=session.interview.id,
@@ -174,14 +171,12 @@ class JoinMeetingUseCase:
                 if not access_result['allowed']:
                     return {'success': False, 'error': access_result['reason']}
             
-            # Update connection status
             self.repo.update_participant_connection(
                 session_id=session_id,
                 participant_type=participant_type,
                 connected=True
             )
             
-            # Send notification when candidate joins
             if participant_type == 'candidate':
                 self.notification_service.send_websocket_notification(
                     user_id=int(session.recruiter_id),
@@ -201,6 +196,46 @@ class JoinMeetingUseCase:
         except Exception as e:
             logger.error(f"Join meeting error: {str(e)}")
             return {'success': False, 'error': str(e)}
+        
+class LeaveMeetingUseCase:
+    def __init__(self, repository:HRRoundRepositoryPort,
+                 notification_service:NotificationService):
+        self.repo = repository
+        self.notification_service = notification_service
+
+    def execute(self, session_id:str, left_by_id:int) ->Dict:
+        try:
+            session = self.repo.get_meeting_session(session_id)
+            if not session:
+                return {'success':False, 'error':'Session not found'}
+            
+            if int(session.candidate_id) != left_by_id:
+                return{
+                    'success':False,
+                    'error':'Unauthorized'
+                }
+            self.repo.update_participant_connection(
+                session_id=session_id,
+                participant_type='candidate',
+                connected=False
+            )
+            self.notification_service.send_websocket_notification(
+                user_id = int(session.recruiter_id),
+                notification_type='candidate_left',
+                data={
+                    'interview_id':session.interview.id,
+                    'session_id':session_id,
+                    'message':'Candidate has left the meeting',
+                    'can_rejoin':True
+                }
+            )
+
+            logger.info(f"Candidate left meeting: {session_id}")
+            return {'success': True}
+            
+        except Exception as e:
+            logger.error(f"Leave meeting error: {str(e)}")
+            return {'success': False, 'error': str(e)}
 
 
 class EndMeetingUseCase:
@@ -213,40 +248,132 @@ class EndMeetingUseCase:
         self.repo = repository
         self.notification_service = notification_service
     
-    def execute(self, session_id: str, ended_by_id: int = None) -> Dict:
+    def execute(self,
+                session_id: str,
+                ended_by_id: int = None,
+                notes_data:Dict=None,
+                recommendation:str=None) -> Dict:
         try:
             session = self.repo.end_meeting_session(session_id)
+            interview = session.interview
             
-            # Send notifications to both parties
+            if notes_data and recommendation:
+                # Build notes payload matching InterviewNotes model fields
+                notes_payload = {
+                    'communication_rating':      notes_data.get('communication', {}).get('rating'),
+                    'communication_notes':       notes_data.get('communication', {}).get('notes', ''),
+                    'culture_fit_rating':        notes_data.get('culture_fit', {}).get('rating'),
+                    'culture_fit_notes':         notes_data.get('culture_fit', {}).get('notes', ''),
+                    'motivation_rating':         notes_data.get('motivation', {}).get('rating'),
+                    'motivation_notes':          notes_data.get('motivation', {}).get('notes', ''),
+                    'professionalism_rating':    notes_data.get('professionalism', {}).get('rating'),
+                    'professionalism_notes':     notes_data.get('professionalism', {}).get('notes', ''),
+                    'problem_solving_rating':    notes_data.get('problem_solving', {}).get('rating'),
+                    'problem_solving_notes':     notes_data.get('problem_solving', {}).get('notes', ''),
+                    'team_collaboration_rating': notes_data.get('team_collaboration', {}).get('rating'),
+                    'team_collaboration_notes':  notes_data.get('team_collaboration', {}).get('notes', ''),
+                    'overall_impression':        notes_data.get('overall_impression', ''),
+                    'strengths':                 notes_data.get('strengths', ''),
+                    'areas_for_improvement':     notes_data.get('areas_for_improvement', ''),
+                    'general_notes':             notes_data.get('general_notes', ''),
+                    'recommendation':            recommendation,
+                    'is_finalized':              True,
+                    'finalized_at':              timezone.now(),
+                }
+                
+                notes = self.repo.create_or_update_notes(
+                    interview_id=interview.id,
+                    recorded_by_id=ended_by_id,
+                    notes_data=notes_payload
+                )
+                
+                # ✅ Determine decision from recommendation
+                decision_map = {
+                    'strong_yes': 'qualified',
+                    'yes':        'qualified',
+                    'maybe':      'pending_review',
+                    'no':         'not_qualified',
+                    'strong_no':  'not_qualified',
+                }
+                decision = decision_map.get(recommendation, 'pending_review')
+                
+                # ✅ Save result
+                if notes.calculated_score is not None:
+                    self.repo.create_or_update_result(
+                        interview_id=interview.id,
+                        final_score=notes.calculated_score,
+                        decision=decision,
+                        decided_by_id=ended_by_id,
+                        decision_reason=notes_data.get('general_notes', '')
+                    )
+            
+            # Notify both parties
             self.notification_service.send_websocket_notification(
                 user_id=int(session.recruiter_id),
                 notification_type='interview_ended',
                 data={
-                    'interview_id': session.interview.id,
+                    'interview_id': interview.id,
                     'session_id': session_id,
-                    'candidate_name': session.interview.candidate_name,
-                    'message': 'Interview session ended'
+                    'message': 'Interview ended successfully'
                 }
             )
-            
             self.notification_service.send_websocket_notification(
                 user_id=int(session.candidate_id),
                 notification_type='interview_ended',
                 data={
-                    'interview_id': session.interview.id,
+                    'interview_id': interview.id,
                     'session_id': session_id,
                     'message': 'Interview session ended. Thank you for your time!'
                 }
             )
             
-            # Trigger post-interview tasks
             from hr_round.tasks import process_interview_completion_task
-            process_interview_completion_task.delay(session.interview.id)
+            process_interview_completion_task.delay(interview.id)
             
             logger.info(f"Meeting ended: {session_id}")
-            
             return {'success': True, 'session': session}
             
         except Exception as e:
             logger.error(f"End meeting error: {str(e)}")
+            return {'success': False, 'error': str(e)}
+        
+class ResetInterviewSessionUseCase:
+    
+    def __init__(self, repository: HRRoundRepositoryPort, notification_service: NotificationService):
+        self.repo = repository
+        self.notification_service = notification_service
+    
+    def execute(self, session_id: str, reset_by_id: int) -> Dict:
+        try:
+            session = self.repo.get_meeting_session(session_id)
+            
+            if not session:
+                return {'success': False, 'error': 'Session not found'}
+            
+            interview = session.interview
+            
+            self.repo.delete_meeting_session(session_id)
+            self.repo.update_interview_status(
+                interview_id=interview.id,
+                status='scheduled',
+                started_at=None,
+                ended_at=None,
+                candidate_joined_at=None,
+                actual_duration_minutes=None
+            )
+            
+            self.notification_service.send_websocket_notification(
+                user_id=int(session.candidate_id),
+                notification_type='interview_rescheduled',
+                data={
+                    'interview_id': interview.id,
+                    'message': 'The interview session was interrupted. The recruiter will reschedule.',
+                }
+            )
+            
+            logger.info(f"Interview session reset: {session_id}")
+            return {'success': True}
+            
+        except Exception as e:
+            logger.error(f"Reset session error: {str(e)}")
             return {'success': False, 'error': str(e)}
