@@ -27,7 +27,9 @@ from hr_round.views import(
     GetResultAPIView,
     FinalizeResultAPIView,
     MoveToNextStageAPIView,
-    ZegoCloudWebhookAPIView
+    ZegoCloudWebhookAPIView,
+    LeaveMeetingAPIView,
+    ResetInterviewSessionAPIView
 
 )
 urlpatterns = [
@@ -45,6 +47,8 @@ urlpatterns = [
     path('meeting/start/',StartMeetingAPIView.as_view(),name='start-meeting'),
     path('meeting/join/',JoinMeetingAPIView.as_view(),name='join-meeting'),
     path('meeting/end/',EndMeetingAPIView.as_view(),name='end-meeting'),
+    path('meeting/leave/', LeaveMeetingAPIView.as_view(), name='leave-meeting'),
+    path('meeting/reset/', ResetInterviewSessionAPIView.as_view(), name='reset-meeting'),
     # path('interview/start-recording/',StartRecordingAPIView.as_view(),name='start-recording'),
     # path('interview/stop-recording/',StopRecordingAPIView.as_view(),name='stop-recording'),
     path('interview/<int:interview_id>/recordings/',GetRecordingAPIView.as_view(),name='get-recordings'),

@@ -8,10 +8,6 @@ class StorageFactory:
     
     @staticmethod
     def create_storage(storage_type: str = None) -> StorageRepositoryPort:
-        """
-        Create storage instance
-        storage_type: 'r2', 'cloudinary', 'django' (default from settings)
-        """
         if storage_type is None:
             storage_type = getattr(settings, 'DEFAULT_STORAGE', 'r2')
         

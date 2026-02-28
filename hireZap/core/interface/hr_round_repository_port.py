@@ -116,6 +116,11 @@ class HRRoundRepositoryPort(ABC):
         """Update participant connection status"""
         return NotImplementedError
     
+    @abstractmethod
+    def delete_meeting_session(self, session_id:str):
+        """Delete meeting session to create fresh session"""
+        raise NotImplementedError
+    
     # @abstractmethod
     # def start_recording(self, session_id:str):
     #     """Start recording"""

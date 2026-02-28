@@ -44,7 +44,6 @@ class HRRoundSettings(models.Model):
         return f"HR Settings - {self.job.job_title}"
     
 class HRInterview(models.Model):
-    """Main HR Interview record"""
     
     STATUS_CHOICES = [
         ('not_scheduled', 'Not Scheduled'),
@@ -145,8 +144,7 @@ class HRInterview(models.Model):
     
 
 class MeetingSession(models.Model):
-    """WebRTC video meeting session tracking"""
-    
+
     interview = models.OneToOneField(
         HRInterview,
         on_delete=models.CASCADE,
@@ -210,8 +208,7 @@ class MeetingSession(models.Model):
 
 
 class InterviewRecording(models.Model):
-    """Video recording metadata"""
-    
+
     PROCESSING_STATUS_CHOICES = [
         ('pending', 'Pending Upload'),
         ('uploading', 'Uploading'),
@@ -260,8 +257,7 @@ class InterviewRecording(models.Model):
 
 
 class InterviewNotes(models.Model):
-    """Recruiter notes with structured sections and ratings"""
-    
+
     interview = models.OneToOneField(
         HRInterview,
         on_delete=models.CASCADE,
@@ -459,8 +455,7 @@ class InterviewChatMessage(models.Model):
 
 
 class InterviewResult(models.Model):
-    """Final interview result and decision"""
-    
+
     interview = models.OneToOneField(
         HRInterview,
         on_delete=models.CASCADE,

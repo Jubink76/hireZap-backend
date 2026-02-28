@@ -519,6 +519,14 @@ class HRInterviewMeetingConsumer(AsyncWebsocketConsumer):
             'session_id': event['session_id'],
             'ended_by': event['ended_by']
         }))
+
+    async def candidate_left(self, event):
+        """Candidate left meeting - session still active"""
+        await self.send(text_data=json.dumps({
+            'type':'candidate_left',
+            'message':event.get('message', 'Candidate has left'),
+            'data':event.get('data', {})
+        }))
     
     # Database operations
     

@@ -98,7 +98,6 @@ class TranscriptionService:
                     pass
     
     def _save_temp_file(self, audio_file: BinaryIO) -> str:
-        """Save uploaded file to temporary location"""
         # Create temp file with original extension
         suffix = os.path.splitext(audio_file.name)[1] if hasattr(audio_file, 'name') else '.wav'
         
@@ -114,10 +113,7 @@ class TranscriptionService:
 
 
 class InterviewScorerService:
-    """
-    AI-powered interview scoring using Gemini (Updated to new API)
-    """
-    
+   
     def __init__(self):
         # Initialize the new Gemini client
         self.client = Groq(api_key=settings.GROQ_API_KEY)
@@ -289,13 +285,10 @@ Only return valid JSON, no markdown formatting.
 
 
 class AudioProcessorService:
-    """
-    Audio processing utilities
-    """
-    
+
     @staticmethod
     def validate_audio_file(file) -> Dict:
-        """Validate audio file"""
+
         try:
             # Check file size (max 25MB for Whisper)
             max_size = 25 * 1024 * 1024  # 25MB
@@ -325,7 +318,6 @@ class AudioProcessorService:
     
     @staticmethod
     def get_audio_duration(file_path: str) -> float:
-        """Get audio file duration in seconds"""
         try:
             import wave
             import contextlib

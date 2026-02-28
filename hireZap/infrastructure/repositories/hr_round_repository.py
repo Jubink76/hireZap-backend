@@ -304,6 +304,14 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         session.save()
         return session
     
+    def delete_meeting_session(self, session_id:str):
+        try:
+            MeetingSession.objects.filter(session_id=session_id).delete()
+        except MeetingSession.DoesNotExist:
+            return None
+
+        
+    
     # def start_recording(self, session_id: str) -> MeetingSession:
     #     """Start recording"""
     #     session = self.get_meeting_session(session_id)
@@ -356,7 +364,7 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         duration_seconds: int = None,
         file_size_bytes: int = None,
         resolution: str = None) -> InterviewRecording:
-        """Create recording record"""
+
         recording, created = InterviewRecording.objects.update_or_create(
             interview_id=interview_id,
             defaults={

@@ -142,8 +142,12 @@ class StageProgressSerializer(serializers.Serializer):
     scheduled_at = serializers.DateTimeField(allow_null=True)
     interview_id = serializers.IntegerField(allow_null=True)
     session_id = serializers.CharField(allow_null=True)
-    session_started_at = serializers.DateTimeField(allow_null=True)
-    zegocloud_config = serializers.DictField(required=False, allow_null=True)
+    session_started_at = serializers.DateTimeField(allow_null=True, required=False)
+    zegocloud_config = serializers.DictField(
+        child=serializers.CharField(allow_null=True, allow_blank=True),
+        allow_null=True,
+        required=False
+    )
 
 class ProgressSerializer(serializers.Serializer):
     """Serializer for overall progress"""

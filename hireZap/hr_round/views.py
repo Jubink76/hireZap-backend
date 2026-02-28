@@ -33,7 +33,9 @@ from core.use_cases.hr_round.conduct_interview import(
     ConductInterviewUseCase,
     StartMeetingUseCase,
     JoinMeetingUseCase,
-    EndMeetingUseCase
+    EndMeetingUseCase,
+    LeaveMeetingUseCase,
+    ResetInterviewSessionUseCase
 )
 from core.use_cases.hr_round.recording_management import(
     # UploadRecordingUseCase,
@@ -433,7 +435,6 @@ class UpdateInterviewStatusAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class StartMeetingAPIView(APIView):
-
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -476,9 +477,7 @@ class StartMeetingAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class JoinMeetingAPIView(APIView):
-    """Join HR interview meeting"""
     permission_classes = [IsAuthenticated]
-    
     # def post(self, request):
     #     try:
     #         session_id = request.data.get('session_id')
@@ -522,23 +521,56 @@ class JoinMeetingAPIView(APIView):
         try:
             session_id = request.data.get('session_id')
             
-            # Get session
-            repo = HRInterviewRepository()
-            session = repo.get_meeting_session(session_id)
+            if not session_id:
+                return Response({
+                    'success': False,
+                    'error': 'session_id is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
+            repo = HRInterviewRepository()
+            notification_service = NotificationService()
+
+            session = repo.get_meeting_session(session_id)
             if not session:
                 return Response({
                     'success': False,
                     'error': 'Session not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
+            user_id_str = str(request.user.id)
+            if user_id_str == str(session.candidate_id):
+                participant_type = 'candidate'
+            elif user_id_str == str(session.recruiter_id):
+                participant_type = 'recruiter'
+            else:
+                # ✅ Fallback: check by role field — use whatever your model has
+                # Common options: request.user.role, request.user.account_type, 
+                # request.user.is_recruiter, request.user.groups, etc.
+                # Replace 'role' below with your actual field name:
+                role = getattr(request.user, 'role', None)
+                participant_type = 'candidate' if role == 'candidate' else 'recruiter'
             from infrastructure.services.hr_round_service import MeetingService
-            
             user_token = MeetingService.generate_zegocloud_token(
                 user_id=str(request.user.id),
                 room_id=session.room_id
             )
             
+            repo.update_participant_connection(
+                session_id=session_id,
+                participant_type=participant_type,
+                connected=True
+            )
+            if participant_type == 'candidate':
+                notification_service.send_websocket_notification(
+                    user_id=int(session.recruiter_id),
+                    notification_type='candidate_joined',
+                    data={
+                        'interview_id': session.interview.id,
+                        'candidate_name': session.interview.candidate_name,
+                        'session_id': session_id,
+                        'message': f'{session.interview.candidate_name} has joined the interview'
+                    }
+                )
             return Response({
                 'success': True,
                 'session': MeetingSessionSerializer(session).data,
@@ -546,7 +578,7 @@ class JoinMeetingAPIView(APIView):
                     'app_id': settings.ZEGOCLOUD_APP_ID,
                     'room_id': session.room_id,
                     'token': user_token,
-                    'user_id': str(request.user.id)
+                    'user_id': user_id_str
                 },
                 'message': 'Joined meeting successfully'
             })
@@ -557,13 +589,48 @@ class JoinMeetingAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+class LeaveMeetingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            session_id = request.data.get('session_id')
+            if not session_id:
+                return Response({
+                    'success': False,
+                    'error': 'session_id is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = LeaveMeetingUseCase(repository, notification_service)
+            result = use_case.execute(
+                session_id = session_id,
+                left_by_id = request.user.id
+            )
+            if result['success']:
+                return Response({
+                    'success': True,
+                    'message': 'Left meeting successfully'
+                })
+            else:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class EndMeetingAPIView(APIView):
-    """End HR interview meeting"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
         try:
             session_id = request.data.get('session_id')
+            notes_data = request.data.get('notes')
+            recommendation = request.data.get('recommendation')
+
             
             if not session_id:
                 return Response({
@@ -577,7 +644,9 @@ class EndMeetingAPIView(APIView):
             use_case = EndMeetingUseCase(repository, notification_service)
             result = use_case.execute(
                 session_id=session_id,
-                ended_by_id=request.user.id
+                ended_by_id=request.user.id,
+                notes_data=notes_data,
+                recommendation=recommendation
             )
             
             if result['success']:
@@ -596,14 +665,47 @@ class EndMeetingAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class ResetInterviewSessionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self,request):
+        try:
+            session_id = request.data.get('session_id')
+            if not session_id:
+                return Response({
+                    'succeess':False,
+                    'error':'session_id is required'
+                },status=status.HTTP_400_BAD_REQUEST)
+            
+            repository = HRInterviewRepository()
+            notification_service = NotificationService()
+            use_case = ResetInterviewSessionUseCase(repository, notification_service)
+            result = use_case.execute(
+                session_id = session_id,
+                reset_by_id = request.user.id
+            )
+            if result['success']:
+                return Response({
+                    'success': True,
+                    'message': 'Session reset. You can reschedule the interview.'
+                })
+            else:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
 
 class ZegoCloudWebhookAPIView(APIView):
-    """Handle ZegoCloud webhooks"""
     permission_classes = []  # Public endpoint (validate signature instead)
     
     def post(self, request):
         try:
-            # Validate webhook signature (important!)
+
             signature = request.headers.get('X-ZegoCloud-Signature')
             if not self._validate_signature(request.body, signature):
                 return Response({
@@ -611,7 +713,6 @@ class ZegoCloudWebhookAPIView(APIView):
                     'error': 'Invalid signature'
                 }, status=status.HTTP_401_UNAUTHORIZED)
             
-            # Process webhook
             repository = HRInterviewRepository()
             notification_service = NotificationService()
             use_case = ProcessZegoCloudWebhookUseCase(repository, notification_service)
@@ -626,7 +727,6 @@ class ZegoCloudWebhookAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def _validate_signature(self, payload: bytes, signature: str) -> bool:
-        """Validate ZegoCloud webhook signature"""
         import hmac
         import hashlib
         
@@ -640,7 +740,6 @@ class ZegoCloudWebhookAPIView(APIView):
         return hmac.compare_digest(expected_signature, signature)
 
 # class StartRecordingAPIView(APIView):
-#     """Start recording interview"""
 #     permission_classes = [IsAuthenticated]
     
 #     def post(self, request):
@@ -671,7 +770,6 @@ class ZegoCloudWebhookAPIView(APIView):
 #             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # class StopRecordingAPIView(APIView):
-#     """Stop recording interview"""
 #     permission_classes = [IsAuthenticated]
     
 #     def post(self, request):
@@ -702,7 +800,6 @@ class ZegoCloudWebhookAPIView(APIView):
 #             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetRecordingAPIView(APIView):
-    """Get recording by interview ID"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, interview_id):
@@ -730,7 +827,6 @@ class GetRecordingAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # class UploadRecordingAPIView(APIView):
-#     """Upload interview recording"""
 #     permission_classes = [IsAuthenticated]
     
 #     def post(self, request):
@@ -772,7 +868,6 @@ class GetRecordingAPIView(APIView):
 #             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class DeleteRecordingAPIView(APIView):
-    """Delete interview recording"""
     permission_classes = [IsAuthenticated]
     
     def delete(self, request, interview_id):
@@ -801,7 +896,6 @@ class DeleteRecordingAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetNotesAPIView(APIView):
-    """Get interview notes"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, interview_id):
@@ -829,7 +923,6 @@ class GetNotesAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CreateNotesAPIView(APIView):
-    """Create interview notes"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -842,7 +935,7 @@ class CreateNotesAPIView(APIView):
                     'error': 'interview is required'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Validate input
+
             serializer = InterviewNotesSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response({
@@ -850,7 +943,7 @@ class CreateNotesAPIView(APIView):
                     'errors': serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Execute use case
+ 
             repository = HRInterviewRepository()
             use_case = CreateNotesUseCase(repository)
             result = use_case.execute(
@@ -876,7 +969,6 @@ class CreateNotesAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class UpdateNotesAPIView(APIView):
-    """Update interview notes"""
     permission_classes = [IsAuthenticated]
     
     def put(self, request, interview_id):
@@ -915,7 +1007,6 @@ class UpdateNotesAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FinalizeNotesAPIView(APIView):
-    """Finalize interview notes"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request, interview_id):
@@ -946,7 +1037,6 @@ class FinalizeNotesAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GetResultAPIView(APIView):
-    """Get interview result"""
     permission_classes = [IsAuthenticated]
     
     def get(self, request, interview_id):
@@ -974,7 +1064,6 @@ class GetResultAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class FinalizeResultAPIView(APIView):
-    """Finalize interview result and make decision"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -1018,7 +1107,6 @@ class FinalizeResultAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class MoveToNextStageAPIView(APIView):
-    """Move qualified candidate to next stage"""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
@@ -1058,7 +1146,6 @@ class MoveToNextStageAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 # class GetHRInterviewStatsAPIView(APIView):
-#     """Get statistics for HR interviews"""
 #     permission_classes = [IsAuthenticated]
     
 #     def get(self, request, job_id):
