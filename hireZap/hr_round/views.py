@@ -16,6 +16,7 @@ from hr_round.serializers import(
     InterviewNotesSerializer,
     InterviewResultSerializer,
     UpdateInterviewStatusSerializer,
+    HRMoveToNextStageSerializer,
     UploadRecordingSerializer
 )
 
@@ -575,7 +576,7 @@ class JoinMeetingAPIView(APIView):
                 'success': True,
                 'session': MeetingSessionSerializer(session).data,
                 'zegocloud_config': {
-                    'app_id': settings.ZEGOCLOUD_APP_ID,
+                    'app_id': str(settings.ZEGOCLOUD_APP_ID),
                     'room_id': session.room_id,
                     'token': user_token,
                     'user_id': user_id_str
@@ -1111,39 +1112,30 @@ class MoveToNextStageAPIView(APIView):
     
     def post(self, request):
         try:
-            interview_id = request.data.get('interview_id')
-            next_stage_id = request.data.get('next_stage_id')
+            serializer = HRMoveToNextStageSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response({'success': False, 'errors': serializer.errors}, 
+                                status=status.HTTP_400_BAD_REQUEST)
             
-            if not interview_id:
-                return Response({
-                    'success': False,
-                    'error': 'interview_id is required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+            data = serializer.validated_data
             
             # Execute use case
             repository = HRInterviewRepository()
             notification_service = NotificationService()
             use_case = MoveToNextStageUseCase(repository, notification_service)
             result = use_case.execute(
-                interview_id=interview_id,
-                next_stage_id=next_stage_id
+                interview_ids=data['interview_ids'],         
+                feedback=data.get('feedback', 'Passed HR round')
             )
             
             if result['success']:
-                return Response({
-                    'success': True,
-                    'application_id': result['application'].id,
-                    'next_stage': result['next_stage'].name,
-                    'message': f"Candidate moved to {result['next_stage'].name}"
-                })
-            else:
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                return Response(result)
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'error': str(e)}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         
 # class GetHRInterviewStatsAPIView(APIView):
 #     permission_classes = [IsAuthenticated]

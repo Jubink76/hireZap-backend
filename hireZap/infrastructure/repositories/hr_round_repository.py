@@ -16,6 +16,8 @@ from hr_round.models import(
 from application.models import ApplicationModel
 from job.models import JobModel
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
+import logging
+logger = logging.getLogger(__name__)
 class HRInterviewRepository(HRRoundRepositoryPort):
 
     #Settings
@@ -54,8 +56,13 @@ class HRInterviewRepository(HRRoundRepositoryPort):
             return HRInterview.objects.select_related(
                 'application',
                 'job',
+                'job__company',
                 'stage',
                 'conducted_by'
+            ).prefetch_related(
+                'notes',
+                'result',
+                'recording',
             ).get(id=interview_id)
         except HRInterview.DoesNotExist:
             return None
@@ -529,3 +536,62 @@ class HRInterviewRepository(HRRoundRepositoryPort):
             ).get(interview_id=interview_id)
         except InterviewResult.DoesNotExist:
             return None
+        
+    def move_to_next_stage(self, interview_ids: List[int], feedback:str='')-> int:
+        from selection_process.models import SelectionProcessModel
+        from application.models import ApplicationStageHistory
+        
+        moved_count = 0
+
+        for interview_id in interview_ids:
+            try:
+                interview = self.get_interview_by_id(interview_id)
+                result    = self.get_result_by_interview(interview_id)
+
+                if not interview or not result:
+                    continue
+
+                application = interview.application
+
+                # Resolve next stage automatically
+                current_process = SelectionProcessModel.objects.get(
+                    job=interview.job,
+                    stage=interview.stage
+                )
+                next_process = SelectionProcessModel.objects.filter(
+                    job=interview.job,
+                    order__gt=current_process.order,
+                    is_active=True
+                ).order_by('order').first()
+
+                if not next_process:
+                    logger.warning(f"No next stage found for interview {interview_id}")
+                    continue
+
+                next_stage = next_process.stage
+
+                # Update application
+                application.current_stage        = next_stage
+                application.current_stage_status = 'pending'
+                application.save(update_fields=[
+                    'current_stage', 'current_stage_status', 'updated_at'
+                ])
+
+                # Stage history
+                ApplicationStageHistory.objects.update_or_create(
+                    application=application,
+                    stage=interview.stage,
+                    defaults={
+                        'status':       'qualified',
+                        'feedback':     f'HR Interview Score: {result.final_score}/100. {feedback}'.strip('. '),
+                        'completed_at': timezone.now(),
+                    }
+                )
+
+                moved_count += 1
+
+            except Exception as e:
+                logger.error(f"Failed to move interview {interview_id}: {str(e)}")
+                continue
+
+        return moved_count
