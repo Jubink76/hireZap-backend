@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Dict, List
 from django.utils import timezone
+from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 from infrastructure.repositories.hr_round_repository import HRInterviewRepository
 from infrastructure.services.notification_service import NotificationService
 import logging
@@ -145,102 +146,139 @@ class FinalizeResultUseCase:
 
 class MoveToNextStageUseCase:
     
-    def __init__(self):
-        self.repo = HRInterviewRepository()
-        self.notification_service = NotificationService()
+    def __init__(self,
+                repository:HRRoundRepositoryPort,
+                notification_service:NotificationService):
+        self.repository = repository
+        self.notification_service = notification_service
     
     def execute(
         self,
-        interview_id: int,
-        next_stage_id: int = None) -> Dict:
-        try:
-            interview = self.repo.get_interview_by_id(interview_id)
-            result = self.repo.get_result_by_interview(interview_id)
-            
-            if not interview or not result:
-                return {'success': False, 'error': 'Interview or result not found'}
-            
-            if result.decision != 'qualified':
-                return {
-                    'success': False,
-                    'error': 'Only qualified candidates can move to next stage'
-                }
-            
-            application = interview.application
-            
-            # Get next stage
-            if next_stage_id:
-                from selection_process.models import SelectionStageModel
-                next_stage = SelectionStageModel.objects.get(id=next_stage_id)
-            else:
-                # Find next stage automatically
-                from selection_process.models import SelectionProcessModel
-                
-                current_process = SelectionProcessModel.objects.get(
-                    job=interview.job,
-                    stage=interview.stage
-                )
-                
-                next_process = SelectionProcessModel.objects.filter(
-                    job=interview.job,
-                    order__gt=current_process.order,
-                    is_active=True
-                ).order_by('order').first()
-                
-                if not next_process:
-                    return {
-                        'success': False,
-                        'error': 'No next stage found in selection process'
-                    }
-                
-                next_stage = next_process.stage
-            
-            # Update application
-            application.current_stage = next_stage
-            application.current_stage_status = 'pending'
-            application.save()
-            
-            # Create history record
-            from application.models import ApplicationStageHistory
-            ApplicationStageHistory.objects.create(
-                application=application,
-                stage=interview.stage,
-                status='qualified',
-                feedback=f"HR Interview Score: {result.final_score}/100",
-                completed_at=timezone.now()
-            )
-            
-            # Send notification
-            self.notification_service.send_websocket_notification(
-                user_id=application.candidate_id,
-                notification_type='stage_progression',
-                data={
-                    'application_id': application.id,
-                    'job_title': interview.job.job_title,
-                    'current_stage': next_stage.name,
-                    'message': f"Congratulations! You've moved to {next_stage.name}"
-                }
-            )
-            
-            # Send email
-            from infrastructure.services.notification_service import NotificationService
-            NotificationService().send_stage_progress_email(
-                application_id=application.id,
-                current_stage=interview.stage.name,
-                next_stage=next_stage.name
-            )
-            
-            logger.info(f" Candidate moved to {next_stage.name}")
-            
-            return {
-                'success': True,
-                'application': application,
-                'next_stage': next_stage
-            }
-            
-        except Exception as e:
-            logger.error(f" Move to next stage error: {str(e)}")
+        interview_ids: List[int],
+        feedback: str = 'Passed HR round') -> Dict:
+
+        if not interview_ids:
+            return {'success': False, 'error': 'No interviews selected'}
+
+        # 1. Validate all interviews
+        validation = self._validate_interviews(interview_ids)
+        if not validation['valid']:
             return {
                 'success': False,
-                'error': str(e)
+                'error': validation['error'],
+                'invalid_interviews': validation.get('invalid_interviews', [])
             }
+
+        # 2. Move via repository (same as telephonic)
+        try:
+            moved_count = self.repository.move_to_next_stage(
+                interview_ids=interview_ids,
+                feedback=feedback
+            )
+        except Exception as e:
+            logger.error(f"move_to_next_stage repository error: {str(e)}")
+            return {'success': False, 'error': f'Failed to move candidates: {str(e)}'}
+
+        # 3. Get next stage name for response
+        next_stage_name = self._get_next_stage_name(interview_ids[0])
+
+        # 4. Send notifications
+        self._send_stage_transition_notifications(
+            interview_ids=interview_ids,
+            next_stage_name=next_stage_name
+        )
+
+        return {
+            'success': True,
+            'moved_count': moved_count,
+            'total': len(interview_ids),
+            'next_stage': next_stage_name,
+            'message': f'Successfully moved {moved_count} candidate(s) to {next_stage_name}'
+        }
+
+    def _validate_interviews(self, interview_ids: List[int]) -> Dict:
+        invalid = []
+
+        for interview_id in interview_ids:
+            interview = self.repository.get_interview_by_id(interview_id)
+
+            if not interview:
+                invalid.append({'interview_id': interview_id, 'reason': 'Interview not found'})
+                continue
+
+            if interview.status != 'completed':
+                invalid.append({
+                    'interview_id': interview_id,
+                    'reason': f'Interview not completed. Status: {interview.status}'
+                })
+                continue
+
+            result = self.repository.get_result_by_interview(interview_id)
+            if not result:
+                invalid.append({'interview_id': interview_id, 'reason': 'No result found'})
+                continue
+
+            if result.decision != 'qualified':
+                invalid.append({
+                    'interview_id': interview_id,
+                    'reason': f'Candidate not qualified. Decision: {result.decision}'
+                })
+
+        if invalid:
+            return {
+                'valid': False,
+                'error': f'{len(invalid)} interview(s) cannot be moved',
+                'invalid_interviews': invalid
+            }
+
+        return {'valid': True}
+
+    def _get_next_stage_name(self, sample_interview_id: int) -> str:
+        """Get next stage name from a sample interview for the response message."""
+        try:
+            interview = self.repository.get_interview_by_id(sample_interview_id)
+            if interview and interview.application.current_stage:
+                return interview.application.current_stage.name
+            return 'Next Stage'
+        except Exception:
+            return 'Next Stage'
+
+    def _send_stage_transition_notifications(
+        self,
+        interview_ids: List[int],
+        next_stage_name: str
+    ):
+        for interview_id in interview_ids:
+            try:
+                interview = self.repository.get_interview_by_id(interview_id)
+                if not interview:
+                    continue
+
+                # WebSocket
+                self.notification_service.send_websocket_notification(
+                    user_id=interview.application.candidate_id,
+                    notification_type='stage_progression',
+                    data={
+                        'application_id': interview.application.id,
+                        'job_title':      interview.job.job_title,
+                        'previous_stage': 'HR Round',
+                        'next_stage':     next_stage_name,
+                        'message':        f"Congratulations! You've been moved to {next_stage_name}"
+                    }
+                )
+
+                # Email (async)
+                self._send_progression_email(interview, next_stage_name)
+
+            except Exception as e:
+                logger.error(f"Failed to notify candidate for interview {interview_id}: {str(e)}")
+
+    def _send_progression_email(self, interview, next_stage_name: str):
+        try:
+            from hr_round.tasks import send_stage_progression_email
+            send_stage_progression_email.apply_async(
+                args=[interview.id, next_stage_name],
+                countdown=5
+            )
+        except Exception as e:
+            logger.error(f"Email task failed for interview {interview.id}: {str(e)}")

@@ -216,4 +216,8 @@ class HRRoundRepositoryPort(ABC):
         """Get result by interview"""
         return NotImplementedError
     
+    @abstractmethod
+    def move_to_next_stage(self,interview_ids:List[int], feedback:str='') -> int:
+        """Move qualified candidates to next stage"""
+        return NotImplementedError
 

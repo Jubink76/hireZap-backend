@@ -29,7 +29,7 @@ from hr_round.views import(
     MoveToNextStageAPIView,
     ZegoCloudWebhookAPIView,
     LeaveMeetingAPIView,
-    ResetInterviewSessionAPIView
+    ResetInterviewSessionAPIView,
 
 )
 urlpatterns = [
@@ -37,7 +37,7 @@ urlpatterns = [
     path('settings/<int:job_id>/update/',UppdateHRRoundSettingsAPIView.as_view(),name='update-hr-round'),
     path('interviews/job/<int:job_id>/',GetHRInterviewsAPIView.as_view(), name='get-interviews'),
     path('interviews/application/<int:application_id>/',GetInterviewByApplicationAPIView.as_view(),name='hr-interview-by-application'),
-    path('interview/<int:interview_id>/',GetInterviewDetailsAPIView.as_view(),name='hr-interview-details'),
+    path('interview/<int:interview_id>/detail/',GetInterviewDetailsAPIView.as_view(),name='hr-interview-details'),
     path('interviews/upcoming/',GetUpcomingInterviewsAPIView.as_view(),name='upcoming-interview'),
     path('interview/schedule/',ScheduleHRInterviewAPIView.as_view(),name='shcedule-interview'),
     path('interview/bulk-schedule',BulkScheduleHRInterviewsAPIView.as_view(),name='bulk-schedule-interview'),
