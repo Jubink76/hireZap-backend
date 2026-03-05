@@ -98,6 +98,8 @@ class GetApplicationProgressUseCase:
             'session_id': None,
             'session_started_at': None,
             'zegocloud_config': None,
+            'offer_status':None,
+            'offer_id':None
         }
         
         # Check if this stage matches the current stage
@@ -168,6 +170,28 @@ class GetApplicationProgressUseCase:
                 logger.error(f" Error getting HR interview progress: {e}")
                 import traceback
                 traceback.print_exc()
+                if is_current_stage:
+                    progress_data['status'] = 'in_progress'
+        
+        elif stage.slug == 'offer':
+            try:
+                offer_data = self.repository.get_offer_progress(application_id)
+                if offer_data:
+                    progress_data['offer_status'] = offer_data['offer_status']
+                    progress_data['offer_id'] = offer_data['offer_id']
+
+                    if offer_data['offer_status'] == 'accepted':
+                        progress_data['status'] = 'completed'
+                        progress_data['result'] = 'passed'
+                    elif offer_data['offer_status'] == 'declined':
+                        progress_data['status'] = 'completed'
+                        progress_data['result'] = 'failed'
+                    elif offer_data['offer_status'] == 'sent':
+                        progress_data['status'] = 'offered'
+                elif is_current_stage:
+                    progress_data['status'] = 'in_progress'
+            except Exception as e:
+                logger.error(f"Error getting offer progress: {e}")
                 if is_current_stage:
                     progress_data['status'] = 'in_progress'
 

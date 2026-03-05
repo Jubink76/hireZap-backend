@@ -148,6 +148,8 @@ class StageProgressSerializer(serializers.Serializer):
         allow_null=True,
         required=False
     )
+    offer_status = serializers.CharField(allow_null=True, required=False)
+    offer_id = serializers.IntegerField(allow_null=True, required=False)
 
 class ProgressSerializer(serializers.Serializer):
     """Serializer for overall progress"""
