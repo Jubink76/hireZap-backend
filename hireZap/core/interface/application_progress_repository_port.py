@@ -29,6 +29,11 @@ class ApplicationProgressRepositoryPort(ABC):
         pass
     
     @abstractmethod
+    def get_offer_progress(self, application_id:int) -> Optional[Dict]:
+        """Get offer interview progress"""
+        pass
+    
+    @abstractmethod
     def get_stage_history(self, application_id: int, stage_id: int) -> Optional[Dict]:
         """Get stage history for application"""
         pass

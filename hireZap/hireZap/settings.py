@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'resume_screening',
     'telephonic_round',
     'hr_round',
+    'offer',
 
 ]
 

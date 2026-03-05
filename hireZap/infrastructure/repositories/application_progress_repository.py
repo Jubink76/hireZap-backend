@@ -7,6 +7,8 @@ from application.models import ApplicationModel, ApplicationStageHistory
 from selection_process.models import SelectionProcessModel
 from telephonic_round.models import TelephonicInterview, InterviewPerformanceResult,CallSession
 from hr_round.models import HRInterview
+from offer.models import OfferLetterModel
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -228,7 +230,22 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             import traceback
             traceback.print_exc()
             return None
-        
+    
+    def get_offer_progress(self, application_id:int) -> dict | None:
+        try:
+            offer = OfferLetterModel.objects.filter(
+                application_id=application_id
+            ).first()
+            if not offer:
+                return None
+            return {
+                'offer_id': offer.id,
+                'offer_status':offer.status,
+            }
+        except Exception as e:
+            logger.error(f"Error fetching offer progress for application {application_id}: {e}")
+            return None
+
     def get_stage_history(self, application_id: int, stage_id: int) -> Optional[Dict]:
         """Get stage history for application"""
         try:

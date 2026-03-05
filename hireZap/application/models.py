@@ -141,7 +141,7 @@ class ApplicationStageHistory(models.Model):
     )
 
     feedback = models.TextField(blank=True, null=True)
-
+    score = models.IntegerField(null=True, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 

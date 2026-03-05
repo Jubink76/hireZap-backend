@@ -537,10 +537,10 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         except InterviewResult.DoesNotExist:
             return None
         
-    def move_to_next_stage(self, interview_ids: List[int], feedback:str='')-> int:
+    def move_to_next_stage(self, interview_ids: List[int], feedback: str = '') -> int:
         from selection_process.models import SelectionProcessModel
         from application.models import ApplicationStageHistory
-        
+
         moved_count = 0
 
         for interview_id in interview_ids:
@@ -553,11 +553,11 @@ class HRInterviewRepository(HRRoundRepositoryPort):
 
                 application = interview.application
 
-                # Resolve next stage automatically
                 current_process = SelectionProcessModel.objects.get(
                     job=interview.job,
                     stage=interview.stage
                 )
+
                 next_process = SelectionProcessModel.objects.filter(
                     job=interview.job,
                     order__gt=current_process.order,
@@ -570,21 +570,38 @@ class HRInterviewRepository(HRRoundRepositoryPort):
 
                 next_stage = next_process.stage
 
-                # Update application
+                stage_after_next = SelectionProcessModel.objects.filter(
+                    job=interview.job,
+                    order__gt=next_process.order,
+                    is_active=True
+                ).exists()
+
+                new_status = 'shortlisted' if not stage_after_next else 'qualified'
+
                 application.current_stage        = next_stage
-                application.current_stage_status = 'pending'
+                application.current_stage_status = 'started'
+                application.status               = new_status
                 application.save(update_fields=[
-                    'current_stage', 'current_stage_status', 'updated_at'
+                    'current_stage', 'current_stage_status', 'status', 'updated_at'
                 ])
 
-                # Stage history
                 ApplicationStageHistory.objects.update_or_create(
                     application=application,
                     stage=interview.stage,
                     defaults={
-                        'status':       'qualified',
-                        'feedback':     f'HR Interview Score: {result.final_score}/100. {feedback}'.strip('. '),
+                        'status':'qualified',
+                        'feedback':f'HR Interview Score: {result.final_score}/100. {feedback}'.strip('. '),
                         'completed_at': timezone.now(),
+                    }
+                )
+
+                ApplicationStageHistory.objects.update_or_create(
+                    application=application,
+                    stage=next_stage,
+                    defaults={ 
+                        'status':'started',
+                        'feedback':     None,
+                        'completed_at': None,
                     }
                 )
 

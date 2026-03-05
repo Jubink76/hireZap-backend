@@ -14,7 +14,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         )
 
         await self.accept()
-        print(f"✅ WebSocket connected: User {self.user_id}")
+        print(f" WebSocket connected: User {self.user_id}")
 
     async def disconnect(self, close_code):
         # Leave room group
@@ -22,7 +22,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        print(f"❌ WebSocket disconnected: User {self.user_id}")
+        print(f" WebSocket disconnected: User {self.user_id}")
 
     async def receive(self, text_data):
         """Handle messages from WebSocket"""
@@ -275,6 +275,32 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'type': 'stage_progression',
             'message': event.get('message', 'You have progressed to the next stage'),
             'data': event.get('data', {})
+        }))
+    # =========================================================================
+    # OFFER NOTIFICATIONS
+    # =========================================================================
+
+    async def offer_received(self, event):
+        await self.send(text_data=json.dumps({
+            'type'           : 'offer_received',
+            'message'        : event.get('message', 'You have received a job offer!'),
+            'application_id' : event.get('application_id'),
+            'job_title'      : event.get('job_title'),
+            'company_name'   : event.get('company_name'),
+            'position_title' : event.get('position_title'),
+            'offer_id'       : event.get('offer_id'),
+        }))
+    
+    async def offer_responded(self, event):
+        """Recruiter is notified when candidate accepts/declines"""
+        await self.send(text_data=json.dumps({
+            'type'           : 'offer_responded',
+            'message'        : event.get('message'),
+            'offer_id'       : event.get('offer_id'),
+            'application_id' : event.get('application_id'),
+            'candidate_name' : event.get('candidate_name'),
+            'position_title' : event.get('position_title'),
+            'action'         : event.get('action'),
         }))
 
 class CompanyConsumer(AsyncWebsocketConsumer):
