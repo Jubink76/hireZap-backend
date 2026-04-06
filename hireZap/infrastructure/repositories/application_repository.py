@@ -2,7 +2,7 @@ from core.entities.application import Application
 from core.interface.application_repository_port import ApplicationRepositoryPort
 from typing import Optional, List
 from application.models import ApplicationModel, ApplicationStageHistory
-from selection_process.models import SelectionProcessModel
+from selection_process.models import SelectionProcessModel, SelectionStageModel
 from django.utils import timezone
 import logging
 
@@ -83,6 +83,14 @@ class ApplicationRepository(ApplicationRepositoryPort):
                 is_active=True
             ).order_by('order').first()
 
+            if first_stage_process:
+                first_stage = first_stage_process.stage
+            else:
+                first_stage = SelectionStageModel.objects.filter(
+                    slug='resume-screening',
+                    is_active=True
+                ).first()
+
             app_model = ApplicationModel.objects.create(
                 job_id=application.job_id,
                 candidate_id=application.candidate_id,
@@ -102,11 +110,11 @@ class ApplicationRepository(ApplicationRepositoryPort):
                 status=application.status,
                 is_draft=application.is_draft,
                 submitted_at=timezone.now() if not application.is_draft else None,
-                current_stage=first_stage_process.stage if first_stage_process else None,
+                current_stage=first_stage if not application.is_draft else None,
                 current_stage_status='pending',
                 screening_status='pending',
             )
-            if first_stage_process and not application.is_draft:
+            if first_stage and not application.is_draft:
                 ApplicationStageHistory.objects.create(
                     application=app_model,
                     stage=first_stage_process.stage,
@@ -117,6 +125,14 @@ class ApplicationRepository(ApplicationRepositoryPort):
             return self._model_to_entity(app_model)
         except Exception as e:
             return None
+        
+    def get_job_by_id(self, job_id):
+        try:
+            from job.models import JobModel
+            return JobModel.objects.get(id=job_id)
+        except JobModel.DoesNotExist:
+            return None
+        
 
     def get_application_by_id(self, application_id: int) -> Optional[Application]:
         """Get application by ID"""

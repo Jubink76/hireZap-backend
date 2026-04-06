@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
     
     def get_application_by_id(self, application_id: int, candidate_id: int):
-        """Get application by ID ensuring candidate ownership"""
         return ApplicationModel.objects.select_related(
             'job', 
             'job__company', 
@@ -28,7 +27,6 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
         )
     
     def get_job_stages(self, job_id: int) -> List[SelectionStageEntity]:
-        """Get job's selection process stages ordered by sequence"""
         try:
             processes = SelectionProcessModel.objects.filter(
                 job_id=job_id,
@@ -67,7 +65,6 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             return []
     
     def get_resume_screening_progress(self, application_id: int) -> Optional[Dict]:
-        """Get resume screening progress for application"""
         try:
             application = ApplicationModel.objects.get(id=application_id)
             
@@ -86,7 +83,6 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             return None
     
     def get_telephonic_interview_progress(self, application_id: int) -> Optional[Dict]:
-        """Get telephonic interview progress for application"""
         try:
             interview = TelephonicInterview.objects.select_related(
                 'performance_result',
@@ -145,7 +141,6 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             return None
     
     def get_hr_interview_progress(self, application_id: int) -> Optional[Dict]:
-        """Get HR interview progress for application"""
         try:
             interview = HRInterview.objects.select_related(
                 'application',
@@ -159,18 +154,45 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             except Exception:
                 session = None
             
+            status_map = {
+                'not_scheduled':    'pending',
+                'scheduled':        'scheduled',
+                'in_progress':      'in_progress',
+                'candidate_joined': 'in_progress',
+                'completed':        'completed',
+                'cancelled':        'pending',
+                'no_show':          'pending',
+            }
+            progress_status = status_map.get(interview.status, 'pending')
+
             # Get notes/score if exists
             score = None
             result = None
             feedback = None
             
             try:
-                if hasattr(interview, 'notes') and interview.notes:
+                if hasattr(interview, 'result') and interview.result:
+                    score = interview.result.final_score
+                    raw_decision = interview.result.decision
+                    if raw_decision == 'qualified':
+                        result = 'passed'
+                    elif raw_decision == 'not_qualified':
+                        result = 'failed'
+                    else:
+                        result = None  
+                elif hasattr(interview, 'notes') and interview.notes:
                     score = interview.notes.calculated_score
-                    result = 'passed' if score and score >= 70 else 'failed' if score else None
+                    result = None  
                     feedback = interview.notes.overall_impression
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Error reading result/notes for interview {interview.id}: {e}")
+
+            if feedback is None:
+                try:
+                    if hasattr(interview, 'notes') and interview.notes:
+                        feedback = interview.notes.overall_impression or interview.notes.general_notes
+                except Exception:
+                    pass
 
             session_id = None
             zegocloud_config = None
@@ -209,7 +231,7 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             
             return {
                 'interview_id': interview.id,
-                'status': interview.status,
+                'status': progress_status,
                 'result': result,
                 'score': score,
                 'scheduled_at': interview.scheduled_at,
@@ -247,7 +269,6 @@ class ApplicationProgressRepository(ApplicationProgressRepositoryPort):
             return None
 
     def get_stage_history(self, application_id: int, stage_id: int) -> Optional[Dict]:
-        """Get stage history for application"""
         try:
             history = ApplicationStageHistory.objects.get(
                 application_id=application_id,

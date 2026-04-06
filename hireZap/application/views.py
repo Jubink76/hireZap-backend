@@ -239,22 +239,8 @@ class ApplicationStageProgressAPIView(APIView):
                 application_id=application_id,
                 candidate_id=candidate.id
             )
-            serializer = ApplicationProgressSerializer(data=result)
-            if not serializer.is_valid():
-                return Response({
-                    'success': False,
-                    'error': 'Invalid data format',
-                    'details': serializer.errors
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-            # Return appropriate response
-            if result['success']:
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    serializer.data,
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            serializer = ApplicationProgressSerializer(result)
+            return Response(serializer.data, status=status.HTTP_200_OK)
                 
         except Exception as e:
             return Response({

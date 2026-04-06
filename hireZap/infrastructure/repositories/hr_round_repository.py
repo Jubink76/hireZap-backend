@@ -14,6 +14,7 @@ from hr_round.models import(
     InterviewResult
 )
 from application.models import ApplicationModel
+from selection_process.models import SelectionProcessModel
 from job.models import JobModel
 from core.interface.hr_round_repository_port import HRRoundRepositoryPort
 import logging
@@ -78,20 +79,61 @@ class HRInterviewRepository(HRRoundRepositoryPort):
         except HRInterview.DoesNotExist:
             return None
     
-    def list_interviews_by_job(
-        self,
-        job_id: int,
-        status: str = None) -> List[HRInterview]:
-        """List interviews for a job"""
+    def list_interviews_by_job(self, job_id: int, status: str = None):
+
         queryset = HRInterview.objects.filter(job_id=job_id)
-        if status:
+        if status and status != 'not_scheduled':
             queryset = queryset.filter(status=status)
-        return queryset.select_related(
-            'application',
-            'job',
-            'stage',
-            'conducted_by'
-        ).order_by('-scheduled_at')
+        
+        existing_interviews = list(queryset.select_related(
+            'application', 'job', 'stage', 'conducted_by',
+            'meeting_session', 'result', 'recording', 'notes'
+        ).order_by('-scheduled_at'))
+
+        if status and status != 'not_scheduled' and status != 'all':
+            return existing_interviews
+
+        hr_stage_process = SelectionProcessModel.objects.filter(
+            job_id=job_id,
+            stage__slug='hr-round',
+            is_active=True
+        ).select_related('stage').first()
+
+        if not hr_stage_process:
+            return existing_interviews
+
+        existing_application_ids = {i.application_id for i in existing_interviews}
+
+        unscheduled_applications = ApplicationModel.objects.filter(
+            job_id=job_id,
+            current_stage=hr_stage_process.stage,
+            is_draft=False,
+            current_stage_status__in=['pending', 'started'],
+        ).exclude(
+            id__in=existing_application_ids
+        ).select_related('candidate', 'candidate__user', 'current_stage', 'job')
+
+        new_interviews = []
+        for app in unscheduled_applications:
+            interview, created = HRInterview.objects.get_or_create(
+                application=app,
+                defaults={
+                    'job_id': job_id,
+                    'stage': hr_stage_process.stage,
+                    'status': 'not_scheduled',
+                }
+            )
+            if created:
+                # Re-fetch with all relations
+                interview = HRInterview.objects.select_related(
+                    'application', 'job', 'stage', 'conducted_by'
+                ).get(id=interview.id)
+            new_interviews.append(interview)
+
+        if status == 'not_scheduled':
+            return new_interviews
+
+        return new_interviews + existing_interviews
     
     def list_interviews_by_recruiter(
         self,

@@ -81,10 +81,9 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
     
     def get_candidates_for_telephonic_round(self, job_id:int, stage_id:Optional[int]=None) -> List[ApplicationModel]:
         try:
-            # Find telephonic round stage
             telephonic_stage_process = SelectionProcessModel.objects.filter(
                 job_id=job_id,
-                stage__slug='telephonic-round',  # or stage__name__icontains='telephonic'
+                stage__slug='telephonic-round', 
                 is_active=True
             ).first()
             
@@ -93,7 +92,6 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             
             telephonic_stage = telephonic_stage_process.stage
             
-            # Get candidates currently in telephonic round stage
             queryset = ApplicationModel.objects.select_related(
                 'candidate',
                 'candidate__user',
@@ -102,7 +100,7 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             ).filter(
                 job_id=job_id,
                 current_stage=telephonic_stage,  
-                current_stage_status__in=['pending', 'qualified']
+                current_stage_status__in=['pending','started', 'qualified']
             )
 
             if stage_id:
@@ -210,10 +208,10 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
                 )
             )
 
-            return TelephonicInterview.objects.bulk_create(
-                interviews,
-                ignore_conflicts=True
-            )
+        return TelephonicInterview.objects.bulk_create(
+            interviews,
+            ignore_conflicts=True
+        )
         
     #call session
 
@@ -391,30 +389,84 @@ class TelephonicRoundRepository(TelephonicRoundRepositoryPort):
             
             application = interview.application
             current_stage = application.current_stage
-            
-            # Get next stage
-            next_stage_process = SelectionProcessModel.objects.filter(
-                job_id=interview.job_id,
-                order__gt=current_stage.order if current_stage else 0,
-                is_active=True
-            ).order_by('order').first()
-            
-            if not next_stage_process:
+
+            if not current_stage:
+                print(f" No current stage for application {application.id}")
                 continue
             
-            # Update application
-            application.current_stage = next_stage_process.stage
-            application.current_stage_status = 'pending'
-            application.status = 'qualified'
-            application.save()
+            # Get next stage
+            all_stage_processes = list(
+                SelectionProcessModel.objects.filter(
+                    job_id=interview.job_id,
+                    is_active=True
+                ).order_by('order').select_related('stage')
+            )
             
-            # Create history record
-            ApplicationStageHistory.objects.create(
+            current_index = next(
+                (i for i, sp in enumerate(all_stage_processes) 
+                if sp.stage.id == current_stage.id),
+                None
+            )
+            
+            if current_index is None:
+                print(f" Current stage {current_stage.name} not found in job stages")
+                continue
+            
+            # ✅ Get next stage by list index
+            if current_index + 1 >= len(all_stage_processes):
+                print(f" Already at final stage")
+                continue
+            
+            next_stage_process = all_stage_processes[current_index + 1]
+            next_stage = next_stage_process.stage
+            
+            print(f" Moving from {current_stage.name} → {next_stage.name}")
+            
+            # Close current stage history
+            closed = ApplicationStageHistory.objects.filter(
                 application=application,
-                stage=next_stage_process.stage,
-                status='started',
+                stage=current_stage,
+            ).exclude(status='qualified').update(
+                status='qualified',
+                completed_at=timezone.now(),
                 feedback=feedback or 'Passed telephonic round'
             )
+            
+            if closed == 0:
+                # No history record existed — create a closed one
+                ApplicationStageHistory.objects.get_or_create(
+                    application=application,
+                    stage=current_stage,
+                    defaults={
+                        'status': 'qualified',
+                        'completed_at': timezone.now(),
+                        'feedback': feedback or 'Passed telephonic round',
+                    }
+                )
+            
+            # Move application to next stage
+            application.current_stage = next_stage
+            application.current_stage_status = 'pending'  
+            application.status = 'qualified'
+            application.save(update_fields=[
+                'current_stage', 'current_stage_status', 'status', 'updated_at'
+            ])
+            
+            # Create next stage history
+            history_obj, created = ApplicationStageHistory.objects.get_or_create(
+                application=application,
+                stage=next_stage,
+                defaults={
+                    'status': 'pending',
+                    'feedback': None,
+                    'completed_at': None,
+                }
+            )
+            if not created:
+                history_obj.status = 'started'
+                history_obj.feedback = None
+                history_obj.completed_at = None
+                history_obj.save(update_fields=['status', 'feedback', 'completed_at'])
             
             moved_count += 1
         

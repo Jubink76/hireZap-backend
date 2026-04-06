@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
 
     def get_application_by_id(self,application_id:int):
-        """Get application with related data"""
         try:
             return ApplicationModel.objects.select_related(
                 'job',
@@ -28,13 +27,11 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             return None
         
     def update_screening_status(self,application_id:int, status:str):
-        """Update application status"""
         ApplicationModel.objects.filter(id=application_id).update(
             screening_status = status
         )
 
     def save_screening_results(self, application_id: int, result: Dict) -> bool:
-        """Save screening results to database"""
         try:
             from application.models import ApplicationModel
             from resume_screening.models import ResumeScreeningResult
@@ -110,7 +107,6 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             return False
         
     def update_job_progress(self, job_id: int):
-        """Update job screening progress"""
         try: 
             job = JobModel.objects.get(id=job_id)
             
@@ -160,25 +156,30 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             print(traceback.format_exc())
 
     def get_pending_applications_by_job(self, job_id: int) -> List:
-        """Get all pending applications for a job"""
+        all_apps = ApplicationModel.objects.filter(job_id=job_id)
+        logger.info(f"Total applications for job {job_id}: {all_apps.count()}")
+        for app in all_apps:
+            logger.info(f"  App {app.id}: is_draft={app.is_draft}, "
+                        f"screening_status={app.screening_status}, "
+                        f"current_stage={app.current_stage}, "
+                        f"current_stage_slug={app.current_stage.slug if app.current_stage else 'NULL'}")
+
         applications = ApplicationModel.objects.filter(
             job_id=job_id,
-            current_stage__slug='resume-screening'
+            is_draft=False,
         ).filter(
-            Q(screening_status='pending') | 
-            Q(screening_status__isnull=True) |
-            Q(screening_status='')
-        ).exclude(
-            screening_status='completed'
+            Q(current_stage__isnull=True) |
+            Q(current_stage__slug='resume-screening')
+        ).filter(
+            Q(screening_status='pending') |
+            Q(screening_status='failed')
         ).values_list('id', flat=True)
 
-        app_list = list(applications)
-
-    
-        return app_list
+        result = list(applications)
+        logger.info(f"Filtered pending applications: {result}")
+        return result
     
     def mark_screening_as_failed(self, application_id: int, error: str, retry_count: int):
-        """Mark application screening as failed"""
         try:
             application = ApplicationModel.objects.get(id=application_id)
             application.screening_status = 'failed'
@@ -196,7 +197,6 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             pass
     
     def update_job_screening_status(self, job_id: int, status: str, **kwargs):
-        """Update job screening status"""
         update_data = {'screening_status': status}
         
         if status == 'in_progress':
@@ -210,7 +210,6 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
         JobModel.objects.filter(id=job_id).update(**update_data)
     
     def check_all_screening_complete(self, job_id: int) -> bool:
-        """Check if all applications are screened"""
         pending_count = ApplicationModel.objects.filter(
             job_id=job_id,
             screening_status__in=['pending', 'processing']
@@ -225,30 +224,29 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             return None
     
     def get_pending_applications_count(self, job_id: int) -> int:
-        """Get count of pending applications"""
         count = ApplicationModel.objects.filter(
             job_id=job_id,
-            current_stage__slug='resume-screening'
+            is_draft=False,
         ).filter(
-            Q(screening_status='pending') | 
-            Q(screening_status__isnull=True) |
-            Q(screening_status='')
-        ).exclude(
-            screening_status='completed'
+            Q(current_stage__isnull=True) |
+            Q(current_stage__slug='resume-screening')
+        ).filter(
+            Q(screening_status='pending') |
+            Q(screening_status='failed')
         ).count()
-        
-        logger.info(f" Pending applications count for job {job_id}: {count}")
-        
+
+        logger.info(f"Pending applications count for job {job_id}: {count}")
         return count
     
     def get_screening_results(self, job_id: int, filters: Optional[Dict] = None) -> List[Dict]:
-        """Get screening results for a job with filters"""
         # Base query
         queryset = ApplicationModel.objects.filter(
             job_id=job_id,
             screening_status='completed'
         ).select_related(
+            'candidate',
             'candidate__user',
+            'current_stage',
             'screening_result'
         ).order_by('-ats_overall_score')
         
@@ -271,31 +269,35 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
                 results.append({
                     'application_id': application.id,
                     'candidate': {
-                        'id': application.candidate.id,
-                        'name': application.candidate.get_full_name(),
-                        'email': application.email,
+                        'id'   : application.candidate.user_id,
+                        'name' : application.candidate.user.full_name,
+                        'email': application.candidate.user.email,
                     },
                     'scores': {
-                        'overall': application.ats_overall_score,
-                        'skills': application.ats_skills_score,
+                        'overall'   : application.ats_overall_score,
+                        'skills'    : application.ats_skills_score,
                         'experience': application.ats_experience_score,
-                        'education': application.ats_education_score,
-                        'keywords': application.ats_keywords_score,
+                        'education' : application.ats_education_score,
+                        'keywords'  : application.ats_keywords_score,
                     },
-                    'decision': application.ats_decision,
-                    'status': application.current_stage_status,
+                    'decision'   : application.ats_decision,
+                    'status'     : application.current_stage_status,
+                    'current_stage': {
+                        'slug': application.current_stage.slug if application.current_stage else None,
+                        'name': application.current_stage.name if application.current_stage else None,
+                    },
                     'details': {
-                        'matched_skills': screening_result.matched_skills,
-                        'missing_skills': screening_result.missing_required_skills,
-                        'experience_years': screening_result.extracted_experience_years,
-                        'education': screening_result.extracted_education,
-                        'is_ats_friendly': screening_result.is_ats_friendly,
-                        'ats_issues': screening_result.ats_issues,
-                        'ai_summary': screening_result.ai_summary,
-                        'strengths': screening_result.strengths,
-                        'weaknesses': screening_result.weaknesses,
+                        'matched_skills'     : screening_result.matching_skills,
+                        'missing_skills'     : screening_result.missing_required_skills,
+                        'experience_years'   : screening_result.extracted_experience_years,
+                        'education'          : screening_result.extracted_education,
+                        'is_ats_friendly'    : screening_result.is_ats_friendly,
+                        'ats_issues'         : screening_result.ats_issues,
+                        'ai_summary'         : screening_result.ai_summary,
+                        'strengths'          : screening_result.strengths,
+                        'weaknesses'         : screening_result.weaknesses,
                     },
-                    'screened_at': screening_result.screened_at.isoformat() if screening_result.screened_at else None,
+                    'screened_at': screening_result.created_at.isoformat() if screening_result.created_at else None,
                 })
             except ResumeScreeningResult.DoesNotExist:
                 continue
@@ -303,8 +305,6 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
         return results
     
     def move_to_next_stage(self, application_id: int, feedback: str = None) -> Dict:
-        """Move application to next stage"""
-        
         try:
             application = ApplicationModel.objects.select_related(
                 'current_stage',
@@ -316,11 +316,15 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             current_stage = application.current_stage
             
             # Check if qualified
-            if application.ats_decision != 'qualified':
-                return {
-                    'success': False,
-                    'error': 'Candidate not qualified'
-                }
+            if current_stage.slug == 'resume-screening':
+                if application.ats_decision != 'qualified':
+                    return {'success': False, 'error': 'Candidate not qualified in resume screening'}
+            else:
+                history = ApplicationStageHistory.objects.filter(
+                    application=application, stage=current_stage
+                ).first()
+                if history and history.status == 'rejected':
+                    return {'success': False, 'error': 'Candidate was rejected in this stage'}
             
             # Get job stages in order
             job_stages = SelectionProcessModel.objects.filter(
@@ -332,8 +336,8 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
             stage_list = list(job_stages)
             current_index = next(
                 (i for i, s in enumerate(stage_list) if s.stage.id == current_stage.id),
-                None
-            )
+                    None
+                )
             
             if current_index is None:
                 return {
@@ -360,16 +364,21 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
                 feedback=feedback
             )
             
-            # Move to next stage
+            
             application.current_stage = next_stage
             application.current_stage_status = 'pending'
-            application.save()
+            application.status='qualified'
+            application.save(update_fields=['current_stage', 'current_stage_status','status','updated_at'])
             
             # Create new stage history
-            ApplicationStageHistory.objects.create(
+            ApplicationStageHistory.objects.update_or_create(
                 application=application,
                 stage=next_stage,
-                status='started'
+                defaults={                   
+                    'status': 'started',
+                    'feedback': None,
+                    'completed_at': None,
+                }
             )
             
             return {
@@ -414,3 +423,10 @@ class ResumeScreeningRepository(ResumeScreeningRepositoryPort):
         ResumeScreeningResult.objects.filter(
             application__job_id=job_id
         ).delete()
+
+    def lock_job_for_applications(self,job_id:int):
+        JobModel.objects.filter(id=job_id).update(
+            screening_status = 'in_progress',
+            screening_started = timezone.now()
+        )
+        logger.info(f" Job {job_id} locked — no new applications accepted")

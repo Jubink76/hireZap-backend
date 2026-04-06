@@ -3,6 +3,12 @@ from abc import ABC, abstractmethod
 from core.entities.application import Application
 
 class ApplicationRepositoryPort(ABC):
+
+    @abstractmethod
+    def get_job_by_id(self, job_id:int):
+        """Get job by id to validate application eligibility"""
+        raise NotImplementedError
+    
     @abstractmethod
     def create_application(self,application:Application) -> Optional[Application]:
         """ Create new application """

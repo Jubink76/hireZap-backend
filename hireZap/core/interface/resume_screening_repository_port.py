@@ -74,3 +74,8 @@ class ResumeScreeningRepositoryPort(ABC):
     def delete_screening_results(self, job_id: int):
         pass
     
+    @abstractmethod
+    def lock_job_for_applications(self,job_id:int):
+        """ Lock job from accepting new applications when started the screening"""
+        raise NotImplementedError
+    

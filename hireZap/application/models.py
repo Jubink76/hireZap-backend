@@ -3,6 +3,7 @@ from django.conf import settings
 from job.models import JobModel
 from candidate.models import CandidateProfile
 from selection_process.models import SelectionStageModel
+from django.utils import timezone
 
 class ApplicationModel(models.Model):
     STATUS_CHOICES = [
@@ -118,7 +119,14 @@ class ApplicationModel(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.candidate.get_full_name()} - {self.job.job_title} ({self.status})"
+        return f"{self.candidate.user.full_name} - {self.job.job_title} ({self.status})"
+    
+    @property
+    def is_job_accepting_applications(self):
+        job = self.job
+        deadline_ok = job.application_deadline is None or job.application_deadline >= timezone.now().date()
+        screening_open = job.screening_status in ('not_started',)
+        return deadline_ok and screening_open
     
 class ApplicationStageHistory(models.Model):
     application = models.ForeignKey(

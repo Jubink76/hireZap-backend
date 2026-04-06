@@ -91,8 +91,19 @@ class FinalizeResultUseCase:
                 application.current_stage_status = 'rejected'
                 application.status = 'rejected'
             
-            application.save()
+            application.save(update_fields=['current_stage_status', 'status', 'updated_at'])
             
+            from application.models import ApplicationStageHistory
+            history_status = 'qualified' if decision == 'qualified' else 'rejected'
+
+            ApplicationStageHistory.objects.filter(
+                application=application,
+                stage=interview.stage,
+            ).update(
+                status=history_status,
+                completed_at=timezone.now(),
+                feedback=decision_reason or '',
+            )
             # Send notifications
             self._send_result_notifications(interview, result)
             
