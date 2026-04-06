@@ -450,9 +450,11 @@ class ManualScoreOverrideAPIView(APIView):
 
 
 class MoveToNextStageAPIView(APIView):
+    
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        print(f"Auth user: {request.user}, authenticated: {request.user.is_authenticated}")
         try:
             # Validate input
             serializer = MoveToNextStageSerializer(data=request.data)

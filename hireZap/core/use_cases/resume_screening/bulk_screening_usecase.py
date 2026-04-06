@@ -45,6 +45,9 @@ class StartBulkScreeningUseCase:
                 'error': 'No pending applications to screen'
             }
         
+        # 5. lock the job immediately before dispatching
+        self.screening_repo.lock_job_for_applications(job_id)
+        
         # 5. Dispatch Celery task
         from resume_screening.tasks import start_bulk_screening
         task = start_bulk_screening.delay(job_id)

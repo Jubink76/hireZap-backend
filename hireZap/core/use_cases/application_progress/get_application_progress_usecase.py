@@ -119,6 +119,8 @@ class GetApplicationProgressUseCase:
                 progress_data['result'] = 'failed'
             elif history['status'] == 'started':
                 progress_data['status'] = 'in_progress'
+            elif history['status'] == 'pending':
+                progress_data['status'] = 'pending'
             
             progress_data['started_at'] = history['started_at']
             progress_data['completed_at'] = history['completed_at']
@@ -147,8 +149,10 @@ class GetApplicationProgressUseCase:
                 if telephonic_data:
                     # This already includes session_id
                     progress_data.update(telephonic_data)
+                    if telephonic_data.get('status') not in ('in_progress', 'joined', 'completed'):
+                        progress_data['session_id'] = None
                 elif is_current_stage:
-                    progress_data['status'] = 'in_progress'
+                    progress_data['status'] = 'pending'
             except Exception as e:
                 logger.error(f"Error getting telephonic interview progress: {e}")
                 import traceback

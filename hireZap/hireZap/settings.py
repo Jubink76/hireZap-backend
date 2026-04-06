@@ -14,6 +14,7 @@ from pathlib import Path
 import environ
 import os
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -370,6 +371,14 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_POOL = 'solo' 
 CELERY_BROKER_CONNECTION_RETRY = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
+
+# celery beat
+CELERY_BEAT_SCHEDULE = {
+    'expire-deadline-passed-jobs':{
+        'task':'jobs.expire_deadline_passed_jobs',
+        'schedule':crontab(hour='0', minute='0'),
+    }
+}
 
 LOGGING = {
     'version': 1,

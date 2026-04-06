@@ -8,6 +8,34 @@ class CreateApplicationUsecase:
     
     def execute(self,application_data:dict) -> dict:
         try:
+
+            job = self.repository.get_job_by_id(application_data['job_id'])
+            if not job:
+                return {
+                    'success':False,
+                    'error' :'Job not found',
+                }
+            
+            if job.screening_status in ('in_progress', 'completed'):
+                return {
+                    'success':False,
+                    'error':'Application are closed, Resume screening started already'
+                }
+            
+            if job.application_deadline:
+                from django.utils import timezone
+                if job.application_deadline < timezone.now().date():
+                    return {
+                        'success':False,
+                        'error':'Application deadline has passed'
+                    }
+            
+            if job.status != 'active':
+                return {
+                    'success':False,
+                    'error':'This job is no longer accepting applications',
+                }
+            
             existing_appliction = self.repository.get_application_by_job_and_candidate(
                 application_data['job_id'],
                 application_data['candidate_id']

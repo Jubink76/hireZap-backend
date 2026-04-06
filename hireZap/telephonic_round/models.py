@@ -46,7 +46,6 @@ class TelephonicRoundSettings(models.Model):
     
 
 class TelephonicInterview(models.Model):
-    """Complete interview handling"""
     STATUS_CHOICES = [
         ('not_scheduled','Not Scheduled'),
         ('scheduled', 'Scheduled'),
@@ -249,7 +248,6 @@ class InterviewTranscription(models.Model):
         return f"Transcription - {self.interview.candidate_name}"
     
 class InterviewPerformanceResult(models.Model):
-    """AI-analyzed performance results"""
 
     interview = models.OneToOneField(
         TelephonicInterview,
@@ -355,9 +353,7 @@ class InterviewPerformanceResult(models.Model):
 
 
 class InterviewFeedback(models.Model):
-    """
-    Optional manual feedback from interviewer
-    """
+
     interview = models.OneToOneField(
         TelephonicInterview,
         on_delete=models.CASCADE,

@@ -17,7 +17,7 @@ class ATSConfigurationSerializer(serializers.ModelSerializer):
             'minimum_experience_years',
             'required_education',
             'important_keywords',
-            'auto_reject_missing_skills',
+            'auto_rejection_missing_skills',
             'auto_reject_below_experience',
             'created_at',
             'updated_at',

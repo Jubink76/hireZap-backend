@@ -98,7 +98,7 @@ class MoveToNextStageUseCase:
                 continue
             
             # Check if decision is qualified
-            if performance_result.final_decision != 'qualified':
+            if performance_result.decision != 'qualified':
                 invalid_interviews.append({
                     'interview_id': interview_id,
                     'reason': f'Candidate not qualified. Decision: {performance_result.final_decision}'

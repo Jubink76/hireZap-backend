@@ -256,7 +256,7 @@ class EndMeetingUseCase:
         try:
             session = self.repo.end_meeting_session(session_id)
             interview = session.interview
-            
+            decision = None
             if notes_data and recommendation:
                 # Build notes payload matching InterviewNotes model fields
                 notes_payload = {
@@ -287,7 +287,6 @@ class EndMeetingUseCase:
                     notes_data=notes_payload
                 )
                 
-                # ✅ Determine decision from recommendation
                 decision_map = {
                     'strong_yes': 'qualified',
                     'yes':        'qualified',
@@ -297,7 +296,6 @@ class EndMeetingUseCase:
                 }
                 decision = decision_map.get(recommendation, 'pending_review')
                 
-                # ✅ Save result
                 if notes.calculated_score is not None:
                     self.repo.create_or_update_result(
                         interview_id=interview.id,
@@ -306,6 +304,55 @@ class EndMeetingUseCase:
                         decided_by_id=ended_by_id,
                         decision_reason=notes_data.get('general_notes', '')
                     )
+
+                    if decision in ('qualified', 'not_qualified'):
+                        from application.models import ApplicationStageHistory
+
+                        history_status = 'qualified' if decision == 'qualified' else 'rejected'
+                        feedback_text = notes_data.get('general_notes', '') or recommendation
+
+                        updated = ApplicationStageHistory.objects.filter(
+                            application=interview.application,
+                            stage=interview.stage,
+                        ).exclude(
+                            status__in=['qualified', 'rejected']  
+                        ).update(
+                            status=history_status,
+                            completed_at=timezone.now(),
+                            feedback=feedback_text,
+                        )
+
+                        if updated == 0:
+                            ApplicationStageHistory.objects.get_or_create(
+                                application=interview.application,
+                                stage=interview.stage,
+                                defaults={
+                                    'status':       history_status,
+                                    'completed_at': timezone.now(),
+                                    'feedback':     feedback_text,
+                                }
+                            )
+
+                        application = interview.application
+                        application.current_stage_status = (
+                            'qualified' if decision == 'qualified' else 'rejected'
+                        )
+                        application.status = (
+                            'qualified' if decision == 'qualified' else 'rejected'
+                        )
+                        application.save(update_fields=[
+                            'current_stage_status', 'status', 'updated_at'
+                        ])
+
+                        logger.info(
+                            f" Stage history updated for application "
+                            f"{interview.application_id}: {history_status}"
+                        )
+                    else:
+                        logger.info(
+                            f"Decision is pending_review for interview {interview.id} "
+                            f"stage history not closed yet"
+                        )
             
             # Notify both parties
             self.notification_service.send_websocket_notification(
