@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-
+from django.conf import settings
 
 class SubscriptionPlanModel(models.Model):
     """Subscription plan models for recruiters and candidates"""
@@ -37,6 +37,13 @@ class SubscriptionPlanModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    stripe_price_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Stripe Price ID (e.g. price_1ABC...). Leave empty for free plans."
+    )
+
     class Meta:
         db_table = 'subscripton_plans'
         ordering = ['price', 'created_at']
@@ -68,4 +75,55 @@ class SubscriptionPlanModel(models.Model):
                 is_free = False
             ).exclude(id=self.id).update(is_default=False)
         super().save(*args, **kwargs)
+
+class UserSubscription(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('canceled', 'Canceled'),
+        ('past_due', 'Past Due'),
+        ('incomplete', 'Incomplete'),    
+        ('incomplete_expired', 'Incomplete Expired'),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='subscription'
+    )
+    plan = models.ForeignKey(
+        SubscriptionPlanModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='subscriptions'
+    )
+
+    # Stripe identifiers
+    stripe_customer_id = models.CharField(max_length=100, null=True, blank=True)
+    stripe_subscription_id = models.CharField(max_length=100, null=True, blank=True)
+    stripe_checkout_session_id = models.CharField(max_length=200, null=True, blank=True)
+
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='inactive')
+
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    canceled_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_subscriptions'
+
+    def __str__(self):
+        return f"{self.user.email} - {self.plan.name if self.plan else 'No Plan'} ({self.status})"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return (
+            self.status == 'active' and
+            self.current_period_end is not None and
+            self.current_period_end > timezone.now()
+        )
 

@@ -10,3 +10,4 @@ app.autodiscover_tasks()
 # celery -A hireZap worker -P solo -l INFO
 # celery -A hireZap beat -l info
 # celery -A hireZap beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+# stripe listen --forward-to localhost:8000/api/subscription/webhook/stripe/

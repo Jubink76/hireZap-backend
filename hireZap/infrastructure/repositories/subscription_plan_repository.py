@@ -118,6 +118,7 @@ class SubscriptionPlanRepository(SubscriptionPlanRepositoryPort):
             is_default=model.is_default,
             is_free=model.is_free,
             is_active=model.is_active,
+            stripe_price_id=model.stripe_price_id,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
