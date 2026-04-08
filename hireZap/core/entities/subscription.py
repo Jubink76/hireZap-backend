@@ -16,6 +16,7 @@ class SubscriptionPlan:
     is_default: bool = False
     is_free: bool = False
     is_active: bool = True
+    stripe_price_id: Optional[str] = None
     id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -37,6 +38,7 @@ class SubscriptionPlan:
             'isDefault':self.is_default,
             'isFree':self.is_free,
             'isActive':self.is_active,
+            'stripe_price_id': self.stripe_price_id,
             'created_at':self.created_at.isoformat() if self.created_at else None,
             'updated_at':self.updated_at.isoformat() if self.updated_at else None,
         }
